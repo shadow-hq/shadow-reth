@@ -1,0 +1,60 @@
+[workspace]
+members = [
+    "crates/exex",
+    "crates/rpc",
+    "bin/shadow-reth",
+]
+default-members = ["bin/shadow-reth"]
+
+# Explicitly set the resolver to version 2, which is the default for packages with edition >= 2021
+# https://doc.rust-lang.org/edition-guide/rust-2021/default-cargo-resolver.html
+resolver = "2"
+
+[workspace.package]
+description = "A single-node implementation of a Shadow RPC on top of Reth, utilizing ExEx and custom RPC methods."
+version = "0.1.0"
+edition = "2021"
+homepage = "https://app.shadow.xyz"
+repository = "https://github.com/metro-xyz/shadow-reth"
+keywords = ["ethereum", "web3", "evm", "exex", "reth", "shadow"]
+exclude = [".github/"]
+rust-version = "1.76"
+license = "MIT OR Apache-2.0"
+
+[profile.release]
+lto = "thin"
+strip = "debuginfo"
+
+# Like release, but with full debug symbols. Useful for e.g. `perf`.
+[profile.debug-fast]
+inherits = "release"
+strip = "none"
+debug = true
+
+[profile.maxperf]
+inherits = "release"
+lto = "fat"
+codegen-units = 1
+incremental = false
+
+[workspace.lints]
+rust.missing_debug_implementations = "warn"
+rust.missing_docs = "warn"
+rust.unreachable_pub = "warn"
+rust.unused_must_use = "deny"
+rust.rust_2018_idioms = "deny"
+rustdoc.all = "warn"
+
+[workspace.dependencies]
+reth = { git = "https://github.com/paradigmxyz/reth.git", rev = "2e2c8e1d63c00e92a972c6a414fddfa7c4241d41" }
+reth-exex = { git = "https://github.com/paradigmxyz/reth.git", rev = "2e2c8e1d63c00e92a972c6a414fddfa7c4241d41" }
+reth-node-api = { git = "https://github.com/paradigmxyz/reth.git", rev = "2e2c8e1d63c00e92a972c6a414fddfa7c4241d41" }
+reth-node-core = { git = "https://github.com/paradigmxyz/reth.git", rev = "2e2c8e1d63c00e92a972c6a414fddfa7c4241d41" }
+reth-node-ethereum = { git = "https://github.com/paradigmxyz/reth.git", rev = "2e2c8e1d63c00e92a972c6a414fddfa7c4241d41" }
+reth-primitives = { git = "https://github.com/paradigmxyz/reth.git", rev = "2e2c8e1d63c00e92a972c6a414fddfa7c4241d41" }
+reth-tracing = { git = "https://github.com/paradigmxyz/reth.git", rev = "2e2c8e1d63c00e92a972c6a414fddfa7c4241d41" }
+
+eyre = "0.6.12"
+tokio = { version = "1.29.1", features = ["macros", "rt-multi-thread"] }
+futures = "0.3.30"
+tracing = "0.1.40"

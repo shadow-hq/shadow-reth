@@ -1,0 +1,71 @@
+# Ignore all
+*
+
+# Unignore all with extensions
+!*.*
+
+# Unignore all dirs
+!*/
+
+# Unignore Makefile
+!Makefile
+
+# Unignore Dockerfile
+!Dockerfile
+
+# Unignore LICENSE* files
+!LICENSE*
+
+# Unignore CODEOWNERS file
+!CODEOWNERS
+
+# Ignore .env
+.env
+
+# Ignore generated Protobuf files
+*.pb.go
+*.pb.gw.go
+
+# Ignore local .terraform directories
+**/.terraform/*
+
+# Ignore .tfstate files
+*.tfstate
+*.tfstate.*
+
+# Ignore terraform crash log files
+crash.log
+crash.*.log
+
+# Ignore .idea/ files
+.idea
+
+# Ignore .vscode/ files
+.vscode
+
+# Ignore .shadow/ files
+.shadow
+
+# Ignore .rust-compiler.toml
+.rust-analyzer.toml
+
+# Ignore Rust target files
+/target
+
+# Ignore DS_Store files
+.DS_Store
+
+# Ignore out/ files
+out
+
+# Ignore flamegraph.svg files
+flamegraph.svg
+
+# Ignore vscode workspaces
+*.code-workspace
+
+# Ignore node modules
+node_modules
+
+# Ignore dump.rdb files
+dump.rdb

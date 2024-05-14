@@ -1,0 +1,194 @@
+name: test-rs
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+  # Optional: allow read access to pull request. Use with `only-new-issues` option.
+  pull-requests: read
+
+# Max 1 concurrent workflow run per PR.
+#
+# Use `github.head_ref` instead of `github.ref` so as not to limit
+# concurrency on non-PR pushes. "`github.head_ref` is only defined on
+# `pull_request` events" [1]
+#
+# References:
+# [1] https://docs.github.com/en/actions/using-jobs/using-concurrency
+# [2] https://docs.github.com/en/actions/learn-github-actions/contexts#github-context
+# [3] https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#pull_request
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Check
+    # Note: We specify Ubuntu 22.04 here because we were getting errors
+    # similar to https://github.com/actions/runner-images/issues/6709
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Set GitHub Personal Access Token
+        run: git config --global url."https://${{ secrets.GH_PAT }}:@github.com/".insteadOf "https://github.com/"
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: 1.76.0
+          override: true
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Run cargo check
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+
+  check-all:
+    name: Check (all features)
+    # Note: We specify Ubuntu 22.04 here because we were getting errors
+    # similar to https://github.com/actions/runner-images/issues/6709
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Set GitHub Personal Access Token
+        run: git config --global url."https://${{ secrets.GH_PAT }}:@github.com/".insteadOf "https://github.com/"
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: 1.76.0
+          override: true
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Run cargo check
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --all-features
+
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest-32-core
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Set GitHub Personal Access Token
+        run: git config --global url."https://${{ secrets.GH_PAT }}:@github.com/".insteadOf "https://github.com/"
+      # Needed to compile properly on Ubuntu
+      # https://github.com/rust-lang/rust/issues/25289
+      - name: Install gcc-multilib
+        run: sudo apt update && sudo apt install gcc-multilib llvm-dev pkg-config libclang-dev
+
+      # IMPORTANT: Be careful with updating the toolchain version here. We have run into issues
+      # with even minor upgrades to the latest stable toolchain, so we're pinning 1.76.0 for now.
+      #
+      # It's also important to make sure that this version is the same as the one used in our
+      # Dockerfiles when building the service binaries.
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: 1.76.0
+          override: true
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: "Set up Cloud for local infra"
+        uses: "google-github-actions/setup-gcloud@v1"
+
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.3
+        with:
+          version: "v0.5.4"
+
+      - name: Run cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all-features
+        env:
+          # sccache
+          SCCACHE_GHA_ENABLED: "true"
+          RUSTC_WRAPPER: "sccache"
+          CARGO_INCREMENTAL: 0
+
+  fmt:
+    name: Cargo Format
+    # Note: We specify Ubuntu 22.04 here because we were getting errors
+    # similar to https://github.com/actions/runner-images/issues/6709
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Set GitHub Personal Access Token
+        run: git config --global url."https://${{ secrets.GH_PAT }}:@github.com/".insteadOf "https://github.com/"
+
+      - name: Install nightly toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+          components: rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Run cargo fmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+
+  clippy:
+    name: Cargo Clippy
+    # Note: We specify Ubuntu 22.04 here because we were getting errors
+    # similar to https://github.com/actions/runner-images/issues/6709
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Set GitHub Personal Access Token
+        run: git config --global url."https://${{ secrets.GH_PAT }}:@github.com/".insteadOf "https://github.com/"
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: 1.76.0
+          override: true
+          components: clippy
+
+      - name: Run cargo clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --all-features -- -D warnings

@@ -1,0 +1,14 @@
+{
+  "LABEL": {
+    "name": ""
+  },
+  "CHECKS": {
+    "regexp": "(?:fix|chore|feat|deploy|meta)(?:\\(.*\\))?:\\s[A-Z0-9]+",
+    "regexpFlags": "i"
+  },
+  "MESSAGES": {
+    "success": "All OK",
+    "failure": "Failing CI test",
+    "notice": ""
+  }
+}
