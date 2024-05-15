@@ -7140,6 +7140,30 @@ dependencies = [
  "reth-node-ethereum",
  "reth-primitives",
  "reth-tracing",
+ "shadow-reth-exex",
+ "shadow-reth-rpc",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "shadow-reth-common"
+version = "0.1.0"
+dependencies = [
+ "eyre",
+ "futures",
+ "reth",
+ "reth-exex",
+ "reth-node-api",
+ "reth-node-core",
+ "reth-node-ethereum",
+ "reth-primitives",
+ "reth-tracing",
+ "revm",
+ "revm-inspectors",
+ "revm-primitives",
+ "serde",
+ "serde_json",
  "tokio",
  "tracing",
 ]
@@ -7157,6 +7181,12 @@ dependencies = [
  "reth-node-ethereum",
  "reth-primitives",
  "reth-tracing",
+ "revm",
+ "revm-inspectors",
+ "revm-primitives",
+ "serde",
+ "serde_json",
+ "shadow-reth-common",
  "tokio",
  "tracing",
 ]

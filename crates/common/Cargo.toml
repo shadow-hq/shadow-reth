@@ -1,5 +1,5 @@
 [package]
-name = "shadow-reth-rpc"
+name = "shadow-reth-common"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -13,6 +13,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+# Reth
 reth.workspace = true
 reth-exex.workspace = true
 reth-node-api.workspace = true
@@ -20,7 +21,16 @@ reth-node-core.workspace = true
 reth-node-ethereum.workspace = true
 reth-primitives.workspace = true
 reth-tracing.workspace = true
+
+# Revm
+revm.workspace = true
+revm-primitives.workspace = true
+revm-inspectors.workspace = true
+
+# Crates
 eyre.workspace = true
 tokio.workspace = true
 futures.workspace = true
 tracing.workspace = true
+serde.workspace = true
+serde_json.workspace = true

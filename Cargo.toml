@@ -2,6 +2,7 @@
 members = [
     "crates/exex",
     "crates/rpc",
+    "crates/common",
     "bin/shadow-reth",
 ]
 default-members = ["bin/shadow-reth"]
@@ -45,7 +46,72 @@ rust.unused_must_use = "deny"
 rust.rust_2018_idioms = "deny"
 rustdoc.all = "warn"
 
+[workspace.lints.clippy]
+# These are some of clippy's nursery (i.e., experimental) lints that we like.
+# By default, nursery lints are allowed. Some of the lints below have made good
+# suggestions which we fixed. The others didn't have any findings, so we can
+# assume they don't have that many false positives. Let's enable them to
+# prevent future problems.
+branches_sharing_code = "warn"
+clear_with_drain = "warn"
+derive_partial_eq_without_eq = "warn"
+empty_line_after_outer_attr = "warn"
+equatable_if_let = "warn"
+imprecise_flops = "warn"
+iter_on_empty_collections = "warn"
+iter_with_drain = "warn"
+large_stack_frames = "warn"
+manual_clamp = "warn"
+mutex_integer = "warn"
+needless_pass_by_ref_mut = "warn"
+nonstandard_macro_braces = "warn"
+or_fun_call = "warn"
+path_buf_push_overwrite = "warn"
+read_zero_byte_vec = "warn"
+redundant_clone = "warn"
+suboptimal_flops = "warn"
+suspicious_operation_groupings = "warn"
+trailing_empty_array = "warn"
+trait_duplication_in_bounds = "warn"
+transmute_undefined_repr = "warn"
+trivial_regex = "warn"
+tuple_array_conversions = "warn"
+uninhabited_references = "warn"
+unused_peekable = "warn"
+unused_rounding = "warn"
+useless_let_if_seq = "warn"
+
+# These are nursery lints which have findings. Allow them for now. Some are not
+# quite mature enough for use in our codebase and some we don't really want.
+# Explicitly listing should make it easier to fix in the future.
+as_ptr_cast_mut = "allow"
+cognitive_complexity = "allow"
+collection_is_never_read = "allow"
+debug_assert_with_mut_call = "allow"
+empty_line_after_doc_comments = "allow"
+fallible_impl_from = "allow"
+future_not_send = "allow"
+iter_on_single_items = "allow"
+missing_const_for_fn = "allow"
+needless_collect = "allow"
+non_send_fields_in_send_ty = "allow"
+option_if_let_else = "allow"
+redundant_pub_crate = "allow"
+significant_drop_in_scrutinee = "allow"
+significant_drop_tightening = "allow"
+string_lit_as_bytes = "allow"
+type_repetition_in_bounds = "allow"
+unnecessary_struct_initialization = "allow"
+use_self = "allow"
+
 [workspace.dependencies]
+# Shadow
+shadow-reth = { path = "bin/shadow-reth" }
+shadow-reth-exex = { path = "crates/exex" }
+shadow-reth-rpc = { path = "crates/rpc" }
+shadow-reth-common = { path = "crates/common" }
+
+# Reth
 reth = { git = "https://github.com/paradigmxyz/reth.git", rev = "2e2c8e1d63c00e92a972c6a414fddfa7c4241d41" }
 reth-exex = { git = "https://github.com/paradigmxyz/reth.git", rev = "2e2c8e1d63c00e92a972c6a414fddfa7c4241d41" }
 reth-node-api = { git = "https://github.com/paradigmxyz/reth.git", rev = "2e2c8e1d63c00e92a972c6a414fddfa7c4241d41" }
@@ -54,7 +120,15 @@ reth-node-ethereum = { git = "https://github.com/paradigmxyz/reth.git", rev = "2
 reth-primitives = { git = "https://github.com/paradigmxyz/reth.git", rev = "2e2c8e1d63c00e92a972c6a414fddfa7c4241d41" }
 reth-tracing = { git = "https://github.com/paradigmxyz/reth.git", rev = "2e2c8e1d63c00e92a972c6a414fddfa7c4241d41" }
 
+# Revm
+revm = { version = "9.0.0", features = ["std", "secp256k1"], default-features = false }
+revm-primitives = { version = "4.0.0", features = ["std"], default-features = false }
+revm-inspectors = { git = "https://github.com/paradigmxyz/evm-inspectors", rev = "21a2db5" }
+
+# Crates.io
 eyre = "0.6.12"
 tokio = { version = "1.29.1", features = ["macros", "rt-multi-thread"] }
 futures = "0.3.30"
 tracing = "0.1.40"
+serde = "1.0.201"
+serde_json = "1.0.117"

@@ -10,7 +10,15 @@ keywords.workspace = true
 exclude.workspace = true
 license.workspace = true
 
+[lints]
+workspace = true
+
 [dependencies]
+# Shadow
+shadow-reth-exex.workspace = true
+shadow-reth-rpc.workspace = true
+
+# Reth
 reth.workspace = true
 reth-exex.workspace = true
 reth-node-api.workspace = true
@@ -18,6 +26,8 @@ reth-node-core.workspace = true
 reth-node-ethereum.workspace = true
 reth-primitives.workspace = true
 reth-tracing.workspace = true
+
+# Crates
 eyre.workspace = true
 tokio.workspace = true
 futures.workspace = true
