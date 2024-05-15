@@ -112,13 +112,16 @@ shadow-reth-rpc = { path = "crates/rpc" }
 shadow-reth-common = { path = "crates/common" }
 
 # Reth
-reth = { git = "https://github.com/paradigmxyz/reth.git", rev = "2e2c8e1d63c00e92a972c6a414fddfa7c4241d41" }
-reth-exex = { git = "https://github.com/paradigmxyz/reth.git", rev = "2e2c8e1d63c00e92a972c6a414fddfa7c4241d41" }
-reth-node-api = { git = "https://github.com/paradigmxyz/reth.git", rev = "2e2c8e1d63c00e92a972c6a414fddfa7c4241d41" }
-reth-node-core = { git = "https://github.com/paradigmxyz/reth.git", rev = "2e2c8e1d63c00e92a972c6a414fddfa7c4241d41" }
-reth-node-ethereum = { git = "https://github.com/paradigmxyz/reth.git", rev = "2e2c8e1d63c00e92a972c6a414fddfa7c4241d41" }
-reth-primitives = { git = "https://github.com/paradigmxyz/reth.git", rev = "2e2c8e1d63c00e92a972c6a414fddfa7c4241d41" }
-reth-tracing = { git = "https://github.com/paradigmxyz/reth.git", rev = "2e2c8e1d63c00e92a972c6a414fddfa7c4241d41" }
+reth = { git = "https://github.com/paradigmxyz/reth.git", rev = "aefcfff25fd3ec534b34337c9838c44ccdbab9b5" }
+reth-exex = { git = "https://github.com/paradigmxyz/reth.git", rev = "aefcfff25fd3ec534b34337c9838c44ccdbab9b5" }
+reth-node-api = { git = "https://github.com/paradigmxyz/reth.git", rev = "aefcfff25fd3ec534b34337c9838c44ccdbab9b5" }
+reth-node-core = { git = "https://github.com/paradigmxyz/reth.git", rev = "aefcfff25fd3ec534b34337c9838c44ccdbab9b5" }
+reth-node-ethereum = { git = "https://github.com/paradigmxyz/reth.git", rev = "aefcfff25fd3ec534b34337c9838c44ccdbab9b5" }
+reth-primitives = { git = "https://github.com/paradigmxyz/reth.git", rev = "aefcfff25fd3ec534b34337c9838c44ccdbab9b5" }
+reth-tracing = { git = "https://github.com/paradigmxyz/reth.git", rev = "aefcfff25fd3ec534b34337c9838c44ccdbab9b5" }
+reth-evm = { git = "https://github.com/paradigmxyz/reth.git", rev = "aefcfff25fd3ec534b34337c9838c44ccdbab9b5" }
+reth-evm-ethereum = { git = "https://github.com/paradigmxyz/reth.git", rev = "aefcfff25fd3ec534b34337c9838c44ccdbab9b5" }
+reth-provider = { git = "https://github.com/paradigmxyz/reth.git", rev = "aefcfff25fd3ec534b34337c9838c44ccdbab9b5" }
 
 # Revm
 revm = { version = "9.0.0", features = ["std", "secp256k1"], default-features = false }

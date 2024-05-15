@@ -69,3 +69,6 @@ node_modules
 
 # Ignore dump.rdb files
 dump.rdb
+
+# Ignore shadow.json
+shadow.json
