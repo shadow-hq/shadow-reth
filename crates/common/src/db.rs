@@ -5,42 +5,143 @@ use sqlx::{
     Pool, Sqlite,
 };
 
-/// Utility function for constructing a pool and creating the necessary
-/// tables and indices for storing shadow logs.
-pub async fn setup_sqlite_db(db_path: &str) -> Result<Pool<Sqlite>, sqlx::Error> {
-    let pool = create_pool(db_path).await?;
-    create_tables(&pool).await?;
-    create_indices(&pool).await?;
-    Ok(pool)
+use crate::ShadowLog;
+
+/// Wrapper type around a SQLite connection pool.
+#[derive(Debug)]
+pub struct SqliteManager {
+    /// Connection pool.
+    pub pool: Pool<Sqlite>,
 }
 
-async fn create_pool(db_path: &str) -> Result<Pool<Sqlite>, sqlx::Error> {
-    SqlitePoolOptions::new()
-        .connect_with(SqliteConnectOptions::from_str(db_path)?.create_if_missing(true))
-        .await
-}
+impl SqliteManager {
+    /// Creates a new instance.
+    pub async fn new(db_path: &str) -> Result<Self, sqlx::Error> {
+        let pool = SqlitePoolOptions::new()
+            .connect_with(SqliteConnectOptions::from_str(db_path)?.create_if_missing(true))
+            .await?;
+        create_tables(&pool).await?;
+        create_indices(&pool).await?;
 
-// TODO: Create helper functions for inserting and retrieving data into shadow_logs table
-// since SQLite has some weird restrictions when working with hexadecimal data
+        Ok(Self { pool })
+    }
+
+    #[allow(clippy::format_in_format_args)]
+    /// Insert a [`ShadowLog`] into the `shadow_log` table.
+    pub async fn insert_into_shadow_log_table(&self, log: ShadowLog) -> Result<(), sqlx::Error> {
+        let sql = format!(
+            "INSERT INTO shadow_logs (
+            block_number,
+            block_hash,
+            block_timestamp,
+            transaction_index,
+            transaction_hash,
+            block_log_index,
+            transaction_log_index,
+            address,
+            data,
+            topic_0,
+            topic_1,
+            topic_2,
+            topic_3,
+            removed,
+            created_at,
+            updated_at
+        ) VALUES ({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, date(), date())",
+            log.block_number,
+            format!("X'{}'", &log.block_hash[2..]),
+            log.block_timestamp,
+            log.transaction_index,
+            format!("X'{}'", &log.transction_hash[2..]),
+            log.block_log_index,
+            log.transaction_log_index,
+            format!("X'{}'", &log.address[2..]),
+            log.data.map_or("NULL".to_string(), |d| format!("X'{}'", &d[2..])),
+            log.topic_0.map_or("NULL".to_string(), |t| format!("X'{}'", &t[2..])),
+            log.topic_1.map_or("NULL".to_string(), |t| format!("X'{}'", &t[2..])),
+            log.topic_2.map_or("NULL".to_string(), |t| format!("X'{}'", &t[2..])),
+            log.topic_3.map_or("NULL".to_string(), |t| format!("X'{}'", &t[2..])),
+            log.removed
+        );
+
+        let _ = sqlx::query(&sql).execute(&self.pool).await?;
+        Ok(())
+    }
+
+    #[allow(clippy::format_in_format_args)]
+    /// Bulk insert a list of [`ShadowLog`] instances into the `shadow_log` table.
+    pub async fn bulk_insert_into_shadow_log_table(
+        &self,
+        logs: Vec<ShadowLog>,
+    ) -> Result<(), sqlx::Error> {
+        let base_stmt = "INSERT INTO shadow_logs (
+            block_number,
+            block_hash,
+            block_timestamp,
+            transaction_index,
+            transaction_hash,
+            block_log_index,
+            transaction_log_index,
+            address,
+            data,
+            topic_0,
+            topic_1,
+            topic_2,
+            topic_3,
+            removed,
+            created_at,
+            updated_at
+        ) VALUES";
+        let values_str = logs
+            .into_iter()
+            .map(|log| {
+                format!(
+                    "({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, date(), date())",
+                    log.block_number,
+                    format!("X'{}'", &log.block_hash[2..]),
+                    log.block_timestamp,
+                    log.transaction_index,
+                    format!("X'{}'", &log.transction_hash[2..]),
+                    log.block_log_index,
+                    log.transaction_log_index,
+                    format!("X'{}'", &log.address[2..]),
+                    log.data.map_or("NULL".to_string(), |d| format!("X'{}'", &d[2..])),
+                    log.topic_0.map_or("NULL".to_string(), |t| format!("X'{}'", &t[2..])),
+                    log.topic_1.map_or("NULL".to_string(), |t| format!("X'{}'", &t[2..])),
+                    log.topic_2.map_or("NULL".to_string(), |t| format!("X'{}'", &t[2..])),
+                    log.topic_3.map_or("NULL".to_string(), |t| format!("X'{}'", &t[2..])),
+                    log.removed
+                )
+            })
+            .collect::<Vec<String>>()
+            .join(",\n");
+
+        let _ = sqlx::query(&format!("{base_stmt} {values_str}")).execute(&self.pool).await?;
+        Ok(())
+    }
+}
 
 async fn create_tables(pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
+    // Since BIGINT in SQLite is actually an i64, we're storing the unsigned
+    // values as text instead. The values for these fields will be converted
+    // into their u64 counterparts as they are returned from the database.
     let sql = r#"
         CREATE TABLE IF NOT EXISTS shadow_logs(
-            block_number      	bigint  	not null,  
-            block_hash        	varchar(66) not null,  
-            block_timestamp   	bigint  	not null,  
-            transaction_index 	bigint  	not null,  
-            transaction_hash  	varchar(66) not null,  
-            block_log_index   	bigint  	not null,  
-            transaction_log_index bigint  	not null,  
-            address           	varchar(42) not null,  
-            data              	text,  
-            topic_0           	varchar(66),  
-            topic_1           	varchar(66),  
-            topic_2           	varchar(66),  
+            block_number      	text  	not null,
+            block_hash        	varchar(66) not null,
+            block_timestamp   	text  	not null,
+            transaction_index 	text  	not null,
+            transaction_hash  	varchar(66) not null,
+            block_log_index   	text  	not null,
+            transaction_log_index text  	not null,
+            address           	varchar(42) not null,
+            removed           	boolean     not null,
+            data              	text,
+            topic_0           	varchar(66),
+            topic_1           	varchar(66),
+            topic_2           	varchar(66),
             topic_3           	varchar(66),
-            removed           	boolean,
-            created_at        	datetime,  
+            created_at        	datetime,
             updated_at        	datetime
         )
         "#;
@@ -62,87 +163,5 @@ async fn create_indices(pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
         "#;
 
     let _ = sqlx::query(sql).execute(pool).await?;
-    Ok(())
-}
-
-/// Seed test data.
-pub async fn seed_test_data(pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
-    let sql_0 = r#"
-        INSERT INTO shadow_logs (
-            block_number,
-            block_hash,
-            block_timestamp,
-            transaction_index,
-            transaction_hash,
-            block_log_index,
-            transaction_log_index,
-            address,
-            data,
-            topic_0,
-            topic_1,
-            topic_2,
-            topic_3,
-            removed,
-            created_at,
-            updated_at
-        ) VALUES (
-            18870000,
-            X'4131d538cf705c267da7f448ec7460b177f40d28115ad290ba6a1fd734afe280',
-            1703595263,
-            167,
-            X'8bf2361656e0ea6f338ad17ac3cd616f8eea9bb17e1afa1580802e9d3231c203',
-            0,
-            26,
-            X'0fbc0a9be1e87391ed2c7d2bb275bec02f53241f',
-            X'000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000049dc9ce34ad2a2177480000000000000000000000000000000000000000000000000432f754f7158ad80000000000000000000000000000000000000000000000000000000000000000',
-            X'd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822',
-            X'0000000000000000000000003fc91a3afd70395cd496c647d5a6cc9d4b2b7fad',
-            X'0000000000000000000000003fc91a3afd70395cd496c647d5a6cc9d4b2b7fad',
-            null,
-            false,
-            date(),
-            date()
-        )
-        "#;
-    let sql_1 = r#"
-        INSERT INTO shadow_logs (
-            block_number,
-            block_hash,
-            block_timestamp,
-            transaction_index,
-            transaction_hash,
-            block_log_index,
-            transaction_log_index,
-            address,
-            data,
-            topic_0,
-            topic_1,
-            topic_2,
-            topic_3,
-            removed,
-            created_at,
-            updated_at
-        ) VALUES (
-            18870001,
-            X'3cac643a6a1af584681a6a6dc632cd110a479c9c642e2da92b73fefb45739165',
-            1703595275,
-            2,
-            X'd02dc650cc9a34def3d7a78808a36a8cb2e292613c2989f4313155e8e4af9b0f',
-            0,
-            0,
-            X'c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
-            X'0000000000000000000000000000000000000000000000001bc16d674ec80000',
-            X'e1fffcc4923d04b559f4d29a8bfc6cda04eb5b0d3c460751c2402c5c5cc9109c',
-            X'0000000000000000000000003fc91a3afd70395cd496c647d5a6cc9d4b2b7fad',
-            null,
-            null,
-            false,
-            date(),
-            date()
-        )
-        "#;
-
-    let _ = sqlx::query(sql_0).execute(pool).await?;
-    let _ = sqlx::query(sql_1).execute(pool).await?;
     Ok(())
 }

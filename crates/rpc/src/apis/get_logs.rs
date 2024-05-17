@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{num::ParseIntError, str::FromStr};
 
 use jsonrpsee::{
     core::{async_trait, RpcResult},
@@ -7,6 +7,7 @@ use jsonrpsee::{
 use reth::providers::{BlockNumReader, BlockReaderIdExt};
 use reth_primitives::{revm_primitives::FixedBytes, BlockNumberOrTag};
 use serde::{Deserialize, Serialize};
+use shadow_reth_common::ShadowLog;
 
 use crate::{ShadowRpc, ShadowRpcApiServer};
 
@@ -60,7 +61,7 @@ pub struct GetLogsResult {
     /// Block number from which the log originated.
     pub block_number: String,
     /// Contains one or more 32-byte non-indexed arguments of the log.
-    pub data: String,
+    pub data: Option<String>,
     /// Integer of the log index in the containing block.
     pub log_index: String,
     /// Indicates whether the log has been removed from the canonical chain.
@@ -72,36 +73,39 @@ pub struct GetLogsResult {
     /// Integer of the transaction index position from which the log originated.
     pub transaction_index: String,
 }
+
 /// Helper type for ease of use in converting rows from the `shadow_getLogs`
 /// query into the `GetLogsResult` type which is used in `GetLogsResponse`.
 #[derive(Debug, sqlx::FromRow)]
-pub struct RawGetLogsRow {
+pub(crate) struct RawGetLogsRow {
     /// Address from which a log originated.
-    pub address: Vec<u8>,
+    pub(crate) address: Vec<u8>,
     /// Hash of bock from which a log orignated.
-    pub block_hash: Vec<u8>,
+    pub(crate) block_hash: Vec<u8>,
     /// Integer of the log index position in its containing block.
-    pub block_log_index: i64,
+    pub(crate) block_log_index: String,
     /// Block number from which a log originated.
-    pub block_number: i64,
+    pub(crate) block_number: String,
+    /// Timestamp of block from which the log originated.
+    pub(crate) block_timestamp: String,
     /// Contains one or more 32-byte non-indexed arguments of the log.
-    pub data: Vec<u8>,
+    pub(crate) data: Option<Vec<u8>>,
     /// Indicates whether a log was removed from the canonical chain.
-    pub removed: bool,
+    pub(crate) removed: bool,
     /// Hash of event signature.
-    pub topic_0: Option<Vec<u8>>,
+    pub(crate) topic_0: Option<Vec<u8>>,
     /// Additional topic #1.
-    pub topic_1: Option<Vec<u8>>,
+    pub(crate) topic_1: Option<Vec<u8>>,
     /// Additional topic #2.
-    pub topic_2: Option<Vec<u8>>,
+    pub(crate) topic_2: Option<Vec<u8>>,
     /// Additional topic #3.
-    pub topic_3: Option<Vec<u8>>,
+    pub(crate) topic_3: Option<Vec<u8>>,
     /// Hash of the transaction from which a log originated.
-    pub transaction_hash: Vec<u8>,
+    pub(crate) transaction_hash: Vec<u8>,
     /// Integer of the transaction index position in a log's containing block.
-    pub transaction_index: i64,
+    pub(crate) transaction_index: String,
     /// Integer of the log index position within a transaction.
-    pub transaction_log_index: i64,
+    pub(crate) transaction_log_index: String,
 }
 
 /// Validated query parameter object. Instances are considered to be well-formed
@@ -118,24 +122,42 @@ pub(crate) struct ValidatedQueryParams {
     pub(crate) topics: [Option<String>; 4],
 }
 
-impl From<RawGetLogsRow> for GetLogsResult {
-    fn from(value: RawGetLogsRow) -> Self {
+impl From<ShadowLog> for GetLogsResult {
+    fn from(value: ShadowLog) -> Self {
         Self {
-            address: format!("0x{}", hex::encode(value.address)),
-            block_hash: format!("0x{}", hex::encode(value.block_hash)),
+            address: value.address,
+            block_hash: value.block_hash,
             block_number: hex::encode(value.block_number.to_be_bytes()),
-            data: format!("0x{}", hex::encode(value.data)),
+            data: value.data,
             log_index: value.block_log_index.to_string(),
             removed: value.removed,
-            topics: [
-                value.topic_0.map(|t| format!("0x{}", hex::encode(t))),
-                value.topic_1.map(|t| format!("0x{}", hex::encode(t))),
-                value.topic_2.map(|t| format!("0x{}", hex::encode(t))),
-                value.topic_3.map(|t| format!("0x{}", hex::encode(t))),
-            ],
-            transaction_hash: format!("0x{}", hex::encode(value.transaction_hash)),
+            topics: [value.topic_0, value.topic_1, value.topic_2, value.topic_3],
+            transaction_hash: value.transction_hash,
             transaction_index: value.transaction_index.to_string(),
         }
+    }
+}
+
+impl TryFrom<RawGetLogsRow> for ShadowLog {
+    type Error = ParseIntError;
+
+    fn try_from(value: RawGetLogsRow) -> Result<Self, Self::Error> {
+        Ok(Self {
+            address: format!("0x{}", hex::encode(value.address)),
+            block_hash: format!("0x{}", hex::encode(value.block_hash)),
+            block_log_index: u64::from_str(&value.block_log_index)?,
+            block_number: u64::from_str(&value.block_number)?,
+            block_timestamp: u64::from_str(&value.block_timestamp)?,
+            transaction_index: u64::from_str(&value.transaction_index)?,
+            transction_hash: format!("0x{}", hex::encode(value.transaction_hash)),
+            transaction_log_index: u64::from_str(&value.transaction_log_index)?,
+            removed: value.removed,
+            data: value.data.map(|d| format!("0x{}", hex::encode(d))),
+            topic_0: value.topic_0.map(|t| format!("0x{}", hex::encode(t))),
+            topic_1: value.topic_1.map(|t| format!("0x{}", hex::encode(t))),
+            topic_2: value.topic_2.map(|t| format!("0x{}", hex::encode(t))),
+            topic_3: value.topic_3.map(|t| format!("0x{}", hex::encode(t))),
+        })
     }
 }
 
@@ -152,6 +174,7 @@ where
                 block_hash,
                 block_log_index,
                 block_number,
+                block_timestamp,
                 data,
                 removed,
                 topic_0,
@@ -174,11 +197,18 @@ where
         for query_params in validated_param_objs {
             let sql = format!("{base_stmt} {query_params}");
             let raw_rows: Vec<RawGetLogsRow> = sqlx::query_as(&sql)
-                .fetch_all(&self.pool)
+                .fetch_all(&self.sqlite_manager.pool)
                 .await
                 .map_err(|e| ErrorObject::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None))?;
-            let mut result =
-                raw_rows.into_iter().map(GetLogsResult::from).collect::<Vec<GetLogsResult>>();
+            let intermediate_results = raw_rows
+                .into_iter()
+                .map(ShadowLog::try_from)
+                .collect::<Result<Vec<ShadowLog>, ParseIntError>>()
+                .unwrap();
+            let mut result = intermediate_results
+                .into_iter()
+                .map(GetLogsResult::from)
+                .collect::<Vec<GetLogsResult>>();
             results.append(&mut result);
         }
 
