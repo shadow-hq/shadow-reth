@@ -13,6 +13,10 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+# Shadow
+shadow-reth-common.workspace = true
+
+# Reth
 reth.workspace = true
 reth-exex.workspace = true
 reth-node-api.workspace = true
@@ -20,7 +24,13 @@ reth-node-core.workspace = true
 reth-node-ethereum.workspace = true
 reth-primitives.workspace = true
 reth-tracing.workspace = true
+
 eyre.workspace = true
 tokio.workspace = true
 futures.workspace = true
 tracing.workspace = true
+jsonrpsee.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sqlx.workspace = true
+hex.workspace = true

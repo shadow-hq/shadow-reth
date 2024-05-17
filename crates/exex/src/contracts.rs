@@ -5,10 +5,9 @@ use revm_primitives::{Address, Bytecode, Bytes, HashMap, B256};
 use serde_json::Value;
 use shadow_reth_common::ToLowerHex;
 
-#[derive(Clone, Debug)]
-
 /// A map of addresses to shadow bytecode, which will be used when replaying
 /// committed transactions.
+#[derive(Clone, Debug)]
 pub(crate) struct ShadowContracts {
     contracts: HashMap<Address, Bytecode>,
     code_hashes: HashMap<Address, B256>,

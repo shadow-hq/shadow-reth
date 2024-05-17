@@ -87,7 +87,7 @@ impl<DB: StateProvider> DatabaseRef for ShadowDatabase<DB> {
             code_hash: self
                 .shadow
                 .code_hash(&address) // Check if the address is a shadow contract, and use that code hash
-                .unwrap_or(account.bytecode_hash.unwrap_or(KECCAK_EMPTY)),
+                .unwrap_or_else(|| account.bytecode_hash.unwrap_or(KECCAK_EMPTY)),
             code: self.shadow.code(&address),
         }))
     }
