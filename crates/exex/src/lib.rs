@@ -4,6 +4,8 @@ mod contracts;
 mod db;
 mod execution;
 
+use std::path::PathBuf;
+
 use contracts::ShadowContracts;
 use execution::ShadowExecutor;
 use eyre::{eyre, OptionExt, Result};
@@ -12,24 +14,26 @@ use reth::providers::{DatabaseProviderFactory, HistoricalStateProviderRef};
 use reth_evm_ethereum::EthEvmConfig;
 use reth_exex::{ExExContext, ExExEvent};
 use reth_node_api::FullNodeComponents;
-use reth_tracing::tracing::info;
-use revm_primitives::Log;
+use reth_tracing::tracing::{debug, info};
 use serde_json::Value;
+use shadow_reth_common::SqliteManager;
 
 use crate::db::ShadowDatabase;
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 /// The main ExEx struct, which handles loading and parsing shadow configuration,
 /// as well as handling ExEx events from reth.
 pub struct ShadowExEx {
     /// Stores the shadow contracts, a map of addresses to shadow (overridden) bytecode.
     contracts: ShadowContracts,
+    /// The [`SqliteManager`] for the shadow database.
+    sqlite_db: SqliteManager,
 }
 
 impl ShadowExEx {
     /// Creates a new instance of the ShadowExEx. This will attempt to load
     /// the configuration from `shadow.json` in the current working directory.
-    pub fn new() -> Result<Self> {
+    pub async fn new(db_path: PathBuf) -> Result<Self> {
         // read config from `./shadow.json` as a serde_json::Value
         let config: Value =
             serde_json::from_str(&std::fs::read_to_string("shadow.json").map_err(|e| {
@@ -38,16 +42,27 @@ impl ShadowExEx {
             .map_err(|e| eyre!("failed to parse `shadow.json`: {}", e))?;
 
         // parse shadow contracts from the config
-        let shadow_contracts = ShadowContracts::try_from(config)?;
+        let contracts = ShadowContracts::try_from(config)?;
 
-        Ok(Self { contracts: shadow_contracts })
+        // get the path to the shadow database
+        let shadow_db_path = db_path.join("shadow.db");
+        debug!("Path to shadow database: {}", shadow_db_path.display());
+
+        // create a new SqliteManager for the shadow database
+        let sqlite_db = SqliteManager::new(
+            shadow_db_path.to_str().expect("Failed to convert shadow_db_path to string"),
+        )
+        .await?;
+
+        Ok(Self { contracts, sqlite_db })
     }
 
     /// The initialization logic of the ExEx is just an async function.
     pub async fn init<Node: FullNodeComponents>(
         ctx: ExExContext<Node>,
     ) -> Result<impl Future<Output = Result<()>>> {
-        let this = Self::new()?;
+        let db_path = ctx.data_dir.db();
+        let this = Self::new(db_path).await?;
 
         info!("Initialized ShadowExEx with {} shadowed contracts", this.contracts.len());
 
@@ -93,17 +108,25 @@ impl ShadowExEx {
                 );
 
                 // Execute the blocks in the chain, collecting logs from shadowed contracts.
-                let logs = blocks
+                let shadow_logs = blocks
                     .into_iter()
                     .map(|block| executor.execute_one(block.clone().unseal()))
                     .collect::<Result<Vec<_>>>()?
                     .into_iter()
-                    .flatten()
-                    .flat_map(|result| result.into_logs())
-                    .filter(|log| self.contracts.is_shadowed(&log.address))
-                    .collect::<Vec<Log>>();
+                    .flat_map(|executed_block| executed_block.logs())
+                    .filter(|log| {
+                        self.contracts
+                            .is_shadowed(&log.address.parse().expect("failed to parse log address"))
+                    })
+                    .collect::<Vec<_>>();
 
-                println!("Logs: {:?}", logs);
+                // Create a new runtime to send the shadow logs to the shadow database.
+                tokio::spawn({
+                    let sqlite_db = self.sqlite_db.clone();
+                    async move {
+                        let _ = sqlite_db.bulk_insert_into_shadow_log_table(shadow_logs).await;
+                    }
+                });
 
                 ctx.events.send(ExExEvent::FinishedHeight(chain.tip().number))?;
             }

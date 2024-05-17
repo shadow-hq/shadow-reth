@@ -14,7 +14,7 @@ pub struct ShadowLog {
     /// Integer of the transaction index position from which the log originated.
     pub transaction_index: u64,
     /// Hash of transaction from which the log originated.
-    pub transction_hash: String,
+    pub transaction_hash: String,
     /// Integer of the log index in the containing transaction.
     pub transaction_log_index: u64,
     /// Indicates whether the log has been removed from the canonical chain.

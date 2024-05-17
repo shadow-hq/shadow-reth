@@ -1,5 +1,5 @@
 use reth_primitives::{Bloom, B64};
-use revm_primitives::{Address, B256};
+use revm_primitives::{Address, Bytes, B256};
 
 /// A trait for converting reth and revm primitives to lowercase hexadecimal strings.
 pub trait ToLowerHex {
@@ -35,5 +35,11 @@ impl ToLowerHex for B64 {
 impl ToLowerHex for Bloom {
     fn to_lower_hex(&self) -> String {
         format!("{:#064x}", self)
+    }
+}
+
+impl ToLowerHex for Bytes {
+    fn to_lower_hex(&self) -> String {
+        format!("{:#x}", self)
     }
 }

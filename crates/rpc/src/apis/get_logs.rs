@@ -132,7 +132,7 @@ impl From<ShadowLog> for GetLogsResult {
             log_index: value.block_log_index.to_string(),
             removed: value.removed,
             topics: [value.topic_0, value.topic_1, value.topic_2, value.topic_3],
-            transaction_hash: value.transction_hash,
+            transaction_hash: value.transaction_hash,
             transaction_index: value.transaction_index.to_string(),
         }
     }
@@ -149,7 +149,7 @@ impl TryFrom<RawGetLogsRow> for ShadowLog {
             block_number: u64::from_str(&value.block_number)?,
             block_timestamp: u64::from_str(&value.block_timestamp)?,
             transaction_index: u64::from_str(&value.transaction_index)?,
-            transction_hash: format!("0x{}", hex::encode(value.transaction_hash)),
+            transaction_hash: format!("0x{}", hex::encode(value.transaction_hash)),
             transaction_log_index: u64::from_str(&value.transaction_log_index)?,
             removed: value.removed,
             data: value.data.map(|d| format!("0x{}", hex::encode(d))),

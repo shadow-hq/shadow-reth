@@ -132,7 +132,7 @@ mod tests {
                 block_number: 18870000,
                 block_timestamp: 1703595263,
                 transaction_index: 167,
-                transction_hash: "0x8bf2361656e0ea6f338ad17ac3cd616f8eea9bb17e1afa1580802e9d3231c203"
+                transaction_hash: "0x8bf2361656e0ea6f338ad17ac3cd616f8eea9bb17e1afa1580802e9d3231c203"
                     .to_string(),
                 transaction_log_index: 26,
                 removed: false,
@@ -149,7 +149,7 @@ mod tests {
                 block_number: 18870001,
                 block_timestamp: 1703595275,
                 transaction_index: 2,
-                transction_hash: "0xd02dc650cc9a34def3d7a78808a36a8cb2e292613c2989f4313155e8e4af9b0f".to_string(),
+                transaction_hash: "0xd02dc650cc9a34def3d7a78808a36a8cb2e292613c2989f4313155e8e4af9b0f".to_string(),
                 transaction_log_index: 0,
                 removed: false,
                 data: Some("0x0000000000000000000000000000000000000000000000001bc16d674ec80000".to_string()),

@@ -1,3 +1,4 @@
+use reth_tracing::tracing::debug;
 use std::str::FromStr;
 
 use sqlx::{
@@ -8,7 +9,7 @@ use sqlx::{
 use crate::ShadowLog;
 
 /// Wrapper type around a SQLite connection pool.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct SqliteManager {
     /// Connection pool.
     pub pool: Pool<Sqlite>,
@@ -27,6 +28,7 @@ impl SqliteManager {
     }
 
     #[allow(clippy::format_in_format_args)]
+    /// TODO: use .bind() instead of format!()
     /// Insert a [`ShadowLog`] into the `shadow_log` table.
     pub async fn insert_into_shadow_log_table(&self, log: ShadowLog) -> Result<(), sqlx::Error> {
         let sql = format!(
@@ -52,7 +54,7 @@ impl SqliteManager {
             format!("X'{}'", &log.block_hash[2..]),
             log.block_timestamp,
             log.transaction_index,
-            format!("X'{}'", &log.transction_hash[2..]),
+            format!("X'{}'", &log.transaction_hash[2..]),
             log.block_log_index,
             log.transaction_log_index,
             format!("X'{}'", &log.address[2..]),
@@ -69,11 +71,13 @@ impl SqliteManager {
     }
 
     #[allow(clippy::format_in_format_args)]
+    /// TODO: use .bind() instead of format!()
     /// Bulk insert a list of [`ShadowLog`] instances into the `shadow_log` table.
     pub async fn bulk_insert_into_shadow_log_table(
         &self,
         logs: Vec<ShadowLog>,
     ) -> Result<(), sqlx::Error> {
+        let start_time = std::time::Instant::now();
         let base_stmt = "INSERT INTO shadow_logs (
             block_number,
             block_hash,
@@ -101,7 +105,7 @@ impl SqliteManager {
                     format!("X'{}'", &log.block_hash[2..]),
                     log.block_timestamp,
                     log.transaction_index,
-                    format!("X'{}'", &log.transction_hash[2..]),
+                    format!("X'{}'", &log.transaction_hash[2..]),
                     log.block_log_index,
                     log.transaction_log_index,
                     format!("X'{}'", &log.address[2..]),
@@ -117,6 +121,7 @@ impl SqliteManager {
             .join(",\n");
 
         let _ = sqlx::query(&format!("{base_stmt} {values_str}")).execute(&self.pool).await?;
+        debug!("Inserted {} shadow logs in {:?}", values_str.len(), start_time.elapsed());
         Ok(())
     }
 }
