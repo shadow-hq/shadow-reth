@@ -2,19 +2,18 @@
 //! overriding bytecode at specific addresses with custom "shadow" bytecode.
 mod contracts;
 mod db;
+mod execution;
 
 use contracts::ShadowContracts;
+use execution::ShadowExecutor;
 use eyre::{eyre, OptionExt, Result};
 use futures::Future;
-use reth::providers::{
-    providers::BundleStateProvider, DatabaseProviderFactory, HistoricalStateProviderRef,
-};
-use reth_evm::execute::{BatchExecutor, BlockExecutorProvider};
+use reth::providers::{DatabaseProviderFactory, HistoricalStateProviderRef};
 use reth_evm_ethereum::EthEvmConfig;
 use reth_exex::{ExExContext, ExExEvent};
 use reth_node_api::FullNodeComponents;
-use reth_node_ethereum::EthExecutorProvider;
 use reth_tracing::tracing::info;
+use revm_primitives::Log;
 use serde_json::Value;
 
 use crate::db::ShadowDatabase;
@@ -62,39 +61,48 @@ impl ShadowExEx {
     async fn exex<Node: FullNodeComponents>(&self, mut ctx: ExExContext<Node>) -> Result<()> {
         while let Some(notification) = ctx.notifications.recv().await {
             if let Some(chain) = notification.committed_chain() {
-                let evm_config = EthEvmConfig::default();
-                let executor_provider =
-                    EthExecutorProvider::new(ctx.config.chain.clone(), evm_config);
-
+                // Create a read-only database provider that we can use to get historical state
+                // at the start of the notification chain. i.e. the state at the first block in the
+                // notification, pre-execution.
                 let database_provider = ctx.provider().database_provider_ro()?;
-                let provider = BundleStateProvider::new(
-                    HistoricalStateProviderRef::new(
-                        database_provider.tx_ref(),
-                        chain.first().number.checked_sub(1).ok_or_eyre("block number underflow")?,
-                        database_provider.static_file_provider().clone(),
-                    ),
-                    chain.state(),
-                );
-                let shadow_db = ShadowDatabase::new(&provider, self.contracts.clone());
-
-                let mut executor = executor_provider.batch_executor(
-                    shadow_db,
-                    ctx.config.prune_config().map(|config| config.segments).unwrap_or_default(),
+                let provider = HistoricalStateProviderRef::new(
+                    database_provider.tx_ref(),
+                    chain.first().number,
+                    database_provider.static_file_provider().clone(),
                 );
 
-                for block in chain.blocks_iter() {
-                    let td = block.header().difficulty;
-                    executor.execute_one((&block.clone().unseal(), td).into())?;
-                }
+                // Use the database provider to create a [`ShadowDatabase`]. This is a
+                // [`reth_revm::Database`] implementation that will override the
+                // bytecode of contracts at specific addresses with custom shadow bytecode, as
+                // defined in `shadow.json`.
+                let db = ShadowDatabase::new(provider, self.contracts.clone());
 
-                let output = executor.finalize();
+                let blocks = chain.blocks_iter().collect::<Vec<_>>();
 
-                let same_state = chain.state() == &output.into();
-                info!(
-                    chain = ?chain.range(),
-                    %same_state,
-                    "Executed chain"
+                // Construct a new Evm with the default config and proper chain spec, using the
+                // `ShadowDatabase` as the state provider.
+                let evm_config = EthEvmConfig::default();
+                let mut executor = ShadowExecutor::new(
+                    &evm_config,
+                    db,
+                    ctx.config.chain.clone(),
+                    blocks
+                        .first()
+                        .map(|b| b.header())
+                        .ok_or_eyre("No blocks found in ExEx notification")?,
                 );
+
+                let logs = blocks
+                    .into_iter()
+                    .map(|block| executor.execute_one(block.clone().unseal()))
+                    .collect::<Result<Vec<_>>>()?
+                    .into_iter()
+                    .flatten()
+                    .flat_map(|result| result.into_logs())
+                    .filter(|log| self.contracts.is_shadowed(&log.address))
+                    .collect::<Vec<Log>>();
+
+                println!("Logs: {:?}", logs);
 
                 ctx.events.send(ExExEvent::FinishedHeight(chain.tip().number))?;
             }

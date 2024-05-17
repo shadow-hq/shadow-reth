@@ -81,7 +81,7 @@ impl<DB: StateProvider> DatabaseRef for ShadowDatabase<DB> {
     /// Returns `Ok` with `Some(AccountInfo)` if the account exists,
     /// `None` if it doesn't, or an error if encountered.
     fn basic_ref(&self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
-        Ok(self.basic_account(address)?.map(|account| AccountInfo {
+        Ok(self.db.basic_account(address)?.map(|account| AccountInfo {
             balance: account.balance,
             nonce: account.nonce,
             code_hash: self
@@ -96,10 +96,9 @@ impl<DB: StateProvider> DatabaseRef for ShadowDatabase<DB> {
     ///
     /// Returns `Ok` with the bytecode if found, or the default bytecode otherwise.
     fn code_by_hash_ref(&self, code_hash: B256) -> Result<Bytecode, Self::Error> {
-        Ok(self
-            .shadow
-            .code_by_hash(&code_hash)
-            .unwrap_or(self.bytecode_by_hash(code_hash)?.unwrap_or_default().0))
+        Ok(self.shadow.code_by_hash(&code_hash).unwrap_or_else(|| {
+            self.bytecode_by_hash(code_hash).ok().flatten().unwrap_or_default().0
+        }))
     }
 
     /// Retrieves the storage value at a specific index for a given address.

@@ -122,6 +122,13 @@ reth-tracing = { git = "https://github.com/paradigmxyz/reth.git", rev = "aefcfff
 reth-evm = { git = "https://github.com/paradigmxyz/reth.git", rev = "aefcfff25fd3ec534b34337c9838c44ccdbab9b5" }
 reth-evm-ethereum = { git = "https://github.com/paradigmxyz/reth.git", rev = "aefcfff25fd3ec534b34337c9838c44ccdbab9b5" }
 reth-provider = { git = "https://github.com/paradigmxyz/reth.git", rev = "aefcfff25fd3ec534b34337c9838c44ccdbab9b5" }
+reth-interfaces = { git = "https://github.com/paradigmxyz/reth.git", rev = "aefcfff25fd3ec534b34337c9838c44ccdbab9b5" }
+reth-revm = { git = "https://github.com/paradigmxyz/reth.git", rev = "aefcfff25fd3ec534b34337c9838c44ccdbab9b5" }
+
+# Alloy
+alloy-consensus = { git = "https://github.com/alloy-rs/alloy", rev = "dd7a999" }
+alloy-sol-types = "0.7.2"
+alloy-rlp = "0.3.4"
 
 # Revm
 revm = { version = "9.0.0", features = ["std", "secp256k1"], default-features = false }

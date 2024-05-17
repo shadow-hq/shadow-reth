@@ -55,6 +55,11 @@ impl ShadowContracts {
         self.contracts.len()
     }
 
+    /// Returns true if the given address is a shadow contract.
+    pub(crate) fn is_shadowed(&self, address: &Address) -> bool {
+        self.contracts.contains_key(address)
+    }
+
     /// Returns the shadow bytecode for the given address, if it exists.
     pub(crate) fn code(&self, address: &Address) -> Option<Bytecode> {
         self.contracts.get(address).cloned()
