@@ -79,8 +79,8 @@ impl ShadowExEx {
 
                 let blocks = chain.blocks_iter().collect::<Vec<_>>();
 
-                // Construct a new Evm with the default config and proper chain spec, using the
-                // `ShadowDatabase` as the state provider.
+                // Construct a new `ShadowExecutor` with the default config and proper chain spec,
+                // using the `ShadowDatabase` as the state provider.
                 let evm_config = EthEvmConfig::default();
                 let mut executor = ShadowExecutor::new(
                     &evm_config,
@@ -92,6 +92,7 @@ impl ShadowExEx {
                         .ok_or_eyre("No blocks found in ExEx notification")?,
                 );
 
+                // Execute the blocks in the chain, collecting logs from shadowed contracts.
                 let logs = blocks
                     .into_iter()
                     .map(|block| executor.execute_one(block.clone().unseal()))

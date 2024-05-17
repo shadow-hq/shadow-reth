@@ -1,21 +1,21 @@
-use eyre::{OptionExt, Result};
+use eyre::Result;
 use reth_evm_ethereum::EthEvmConfig;
 use reth_node_api::{ConfigureEvm, ConfigureEvmEnv};
 use reth_primitives::{revm::env::fill_tx_env, BlockWithSenders, ChainSpec, Header};
 use reth_provider::StateProvider;
-use reth_tracing::tracing::debug;
+use reth_tracing::tracing::{debug, error};
 use revm::{
     db::{states::bundle_state::BundleRetention, State},
     DatabaseCommit, Evm, StateBuilder,
 };
 use revm_primitives::{CfgEnvWithHandlerCfg, EVMError, ExecutionResult, ResultAndState, U256};
-use shadow_reth_common::ToLowerHex;
 use std::sync::Arc;
 
 use crate::db::ShadowDatabase;
 
+/// A block executor which shadows certain contracts, overriding their bytecode.
+/// Uses the [`ShadowDatabase`] to shadow the contracts from the provided `shadow.json`.
 #[derive(Debug)]
-/// todo
 pub(crate) struct ShadowExecutor<'a, DB: StateProvider> {
     evm: Evm<'a, (), State<ShadowDatabase<DB>>>,
 }
@@ -32,45 +32,51 @@ impl<'a, DB: StateProvider> ShadowExecutor<'a, DB> {
         Self { evm }
     }
 
-    /// docs todo
+    /// Executes a single block (without verifying them) and returns their [`ExecutionResult`]s.
     pub(crate) fn execute_one(&mut self, block: BlockWithSenders) -> Result<Vec<ExecutionResult>> {
+        // Update the base fee per gas to 0 to avoid any gas fees.
+        // This will allow us to execute shadow bytecode without running out of gas.
+        let mut block = block;
+        block.block.header.base_fee_per_gas = Some(0);
+
         let transactions = block.into_transactions();
         let mut results = Vec::with_capacity(transactions.len());
 
         if !transactions.is_empty() {
             for transaction in transactions {
-                let sender = transaction.recover_signer().ok_or_eyre(format!(
-                    "invalid canonical transaction '{}', failed to recover signer",
-                    transaction.hash.to_lower_hex()
-                ))?;
-
-                // Execute transaction.
-                // Fill revm structure.
-                fill_tx_env(self.evm.tx_mut(), &transaction, sender);
-
-                let ResultAndState { result, state } = match self.evm.transact_preverified() {
-                    Ok(result) => result,
-                    Err(err) => {
-                        match err {
-                            EVMError::Transaction(err) => {
-                                // if the transaction is invalid, we can skip it
-                                debug!(%err, ?transaction, "Skipping invalid transaction");
-                                continue;
-                            }
-                            err => {
-                                // this is an error that we should treat as fatal for this attempt
-                                eyre::bail!(err)
-                            }
-                        }
+                // Recover the sender of the transaction.
+                let sender = match transaction.recover_signer() {
+                    Some(sender) => sender,
+                    None => {
+                        debug!(?transaction, "Skipping transaction with invalid signature");
+                        continue;
                     }
                 };
 
-                self.evm.db_mut().commit(state);
+                // Execute the transaction, do not verify it since we're shadowing certain contracts
+                // which may not be valid.
+                fill_tx_env(self.evm.tx_mut(), &transaction, sender);
+                let ResultAndState { result, state } = match self.evm.transact_preverified() {
+                    Ok(result) => result,
+                    Err(err) => match err {
+                        EVMError::Transaction(err) => {
+                            debug!(%err, ?transaction, "Skipping invalid transaction");
+                            continue;
+                        }
+                        err => {
+                            error!(%err, ?transaction, "Fatal error during transaction execution");
+                            continue;
+                        }
+                    },
+                };
 
-                // append transaction to the list of executed transactions
+                // Commit the state changes to the shadowed database, and store the result of the
+                // transaction.
+                self.evm.db_mut().commit(state);
                 results.push(result);
             }
 
+            // Merge the transitions into the shadowed database.
             self.evm.db_mut().merge_transitions(BundleRetention::Reverts);
         }
 
