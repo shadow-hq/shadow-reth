@@ -36,27 +36,33 @@ pub(crate) struct ExecutedBlock {
 impl ExecutedBlock {
     /// Returns [`ShadowLog`]s from the executed block.
     pub(crate) fn logs(&self) -> Vec<ShadowLog> {
+        let mut block_log_index = 0;
         self.results
             .clone()
             .into_iter()
             .enumerate()
             .flat_map(|(transaction_index, (transaction, result))| {
-                result.into_logs().into_iter().map(move |log| ShadowLog {
-                    address: log.address.to_lower_hex(),
-                    block_hash: self.block.hash_slow().to_lower_hex(),
-                    block_log_index: 0, // TODO: what do we do about log index fields?
-                    block_number: self.block.number,
-                    block_timestamp: self.block.timestamp,
-                    transaction_index: transaction_index as u64,
-                    transaction_hash: transaction.hash.to_lower_hex(),
-                    transaction_log_index: 0, // TODO: what do we do about log index fields?
-                    removed: false,
-                    data: Some(log.data.data.to_lower_hex()),
-                    topic_0: log.topics().first().map(|t| t.to_lower_hex()),
-                    topic_1: log.topics().get(1).map(|t| t.to_lower_hex()),
-                    topic_2: log.topics().get(2).map(|t| t.to_lower_hex()),
-                    topic_3: log.topics().get(3).map(|t| t.to_lower_hex()),
-                })
+                result.into_logs().into_iter().enumerate().map(
+                    move |(transaction_log_index, log)| {
+                        block_log_index += 1;
+                        ShadowLog {
+                            address: log.address.to_lower_hex(),
+                            block_hash: self.block.hash_slow().to_lower_hex(),
+                            block_log_index,
+                            block_number: self.block.number,
+                            block_timestamp: self.block.timestamp,
+                            transaction_index: transaction_index as u64,
+                            transaction_hash: transaction.hash.to_lower_hex(),
+                            transaction_log_index: transaction_log_index as u64,
+                            removed: false,
+                            data: Some(log.data.data.to_lower_hex()),
+                            topic_0: log.topics().first().map(|t| t.to_lower_hex()),
+                            topic_1: log.topics().get(1).map(|t| t.to_lower_hex()),
+                            topic_2: log.topics().get(2).map(|t| t.to_lower_hex()),
+                            topic_3: log.topics().get(3).map(|t| t.to_lower_hex()),
+                        }
+                    },
+                )
             })
             .collect()
     }

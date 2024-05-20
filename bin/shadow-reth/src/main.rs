@@ -4,15 +4,9 @@
 //! and [`shadow-reth-rpc`] to provide an RPC interface for interacting with shadow data.
 
 use eyre::Result;
-use reth::{
-    providers::test_utils::TestCanonStateSubscriptions,
-    rpc::builder::{RethRpcModule, RpcModuleBuilder, RpcServerConfig, TransportRpcModuleConfig},
-    tasks::TokioTaskExecutor,
-};
-use reth_node_ethereum::{EthEvmConfig, EthereumNode};
+use reth_node_ethereum::EthereumNode;
 use shadow_reth_exex::ShadowExEx;
-use shadow_reth_rpc::{ShadowRpc, ShadowRpcApiServer};
-use tracing::info;
+use shadow_reth_rpc::ShadowRpc;
 
 fn main() -> Result<()> {
     // Enable backtraces unless a RUST_BACKTRACE value has already been explicitly provided.
@@ -21,43 +15,21 @@ fn main() -> Result<()> {
     }
 
     reth::cli::Cli::parse_args().run(|builder, _| async move {
-        // Build rpc args
-        let rpc_port = builder.config().rpc.http_port;
-        let rpc_addr = builder.config().rpc.http_addr;
-        let rpc_bind_addr = format!("{}:{}", rpc_addr, rpc_port);
+        let db_path_obj = builder.data_dir().db().join("shadow.db");
 
         // Start reth w/ the shadow exex.
         let handle = builder
             .node(EthereumNode::default())
             .install_exex("ShadowExEx", ShadowExEx::init)
+            .extend_rpc_modules(move |ctx| {
+                let provider = ctx.provider().clone();
+                ShadowRpc::init(ctx, db_path_obj, provider)
+            })
             .launch()
             .await?;
 
-        // Build the shadow RPC server.
-        let rpc_builder = RpcModuleBuilder::default()
-            .with_provider(handle.node.provider.clone())
-            .with_noop_pool()
-            .with_noop_network()
-            .with_executor(TokioTaskExecutor::default())
-            .with_evm_config(EthEvmConfig::default())
-            .with_events(TestCanonStateSubscriptions::default());
-        let config = TransportRpcModuleConfig::default().with_http([RethRpcModule::Eth]);
-        let mut server = rpc_builder.build(config);
-
-        // Start the shadow RPC server.
-        let db_path_obj = handle.node.data_dir.data_dir().join("shadow.db");
-        let shadow_rpc =
-            ShadowRpc::new(handle.node.provider.clone(), db_path_obj.to_str().unwrap())
-                .await
-                .unwrap();
-        server.merge_configured(shadow_rpc.into_rpc()).unwrap();
-        let server_args = RpcServerConfig::http(Default::default())
-            .with_http_address(rpc_bind_addr.parse().unwrap());
-        let rpc_handle = server_args.start(server);
-        info!("Shadow RPC listening on '{rpc_bind_addr}'");
-
         // Wait for the node to exit.
-        let _ = tokio::join!(handle.wait_for_node_exit(), rpc_handle);
+        handle.wait_for_node_exit().await?;
 
         Ok(())
     })

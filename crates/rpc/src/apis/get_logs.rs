@@ -5,7 +5,7 @@ use jsonrpsee::{
     types::{error::INTERNAL_ERROR_CODE, ErrorObject},
 };
 use reth::providers::{BlockNumReader, BlockReaderIdExt};
-use reth_primitives::{revm_primitives::FixedBytes, BlockNumberOrTag};
+use reth_primitives::{revm_primitives::FixedBytes, Address, BlockNumberOrTag};
 use serde::{Deserialize, Serialize};
 use shadow_reth_common::ShadowLog;
 
@@ -151,6 +151,7 @@ where
     P: BlockNumReader + BlockReaderIdExt + Clone + Unpin + 'static,
 {
     #[doc = "Returns shadow logs."]
+    // todo: move to common sqlite module
     async fn get_logs(&self, params: GetLogsParameters) -> RpcResult<Vec<GetLogsResult>> {
         let base_stmt = "
             SELECT
@@ -201,6 +202,13 @@ impl ValidatedQueryParams {
         provider: &(impl BlockNumReader + BlockReaderIdExt + Clone + Unpin + 'static),
         params: GetLogsParameters,
     ) -> RpcResult<Self> {
+        let address = params
+            .address
+            .into_iter()
+            .map(|addr| addr.parse::<Address>().unwrap())
+            .map(|a| a.to_string())
+            .collect::<Vec<String>>();
+
         let (from_block, to_block) = match (params.block_hash, params.from_block, params.to_block) {
             (None, None, None) => {
                 let num = match provider.block_by_number_or_tag(BlockNumberOrTag::Latest) {
@@ -360,7 +368,7 @@ impl ValidatedQueryParams {
             [None, None, None, None]
         };
 
-        Ok(ValidatedQueryParams { from_block, to_block, addresses: params.address, topics })
+        Ok(ValidatedQueryParams { from_block, to_block, addresses: address, topics })
     }
 }
 

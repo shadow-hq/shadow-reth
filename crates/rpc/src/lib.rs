@@ -4,10 +4,17 @@
 /// Contains logic for custom RPC API methods.
 pub(crate) mod apis;
 
+use std::path::PathBuf;
+
 use apis::{GetLogsParameters, GetLogsResult};
+use eyre::{eyre, Result};
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
-use reth::providers::{BlockNumReader, BlockReaderIdExt};
-use shadow_reth_common::SqliteManager;
+use reth::{
+    builder::rpc::RpcContext,
+    providers::{BlockNumReader, BlockReaderIdExt},
+};
+use reth_node_api::FullNodeComponents;
+use shadow_reth_common::ShadowSqliteDb;
 
 #[rpc(server, namespace = "shadow")]
 pub trait ShadowRpcApi {
@@ -21,19 +28,49 @@ pub trait ShadowRpcApi {
 pub struct ShadowRpc<P> {
     provider: P,
     /// Database manager.
-    sqlite_manager: SqliteManager,
+    sqlite_manager: ShadowSqliteDb,
 }
 
 impl<Provider> ShadowRpc<Provider>
 where
     Provider: BlockNumReader + BlockReaderIdExt + Clone + Unpin,
 {
-    /// Instatiate a Shadow RPC API.
-    pub async fn new(
-        provider: Provider,
-        db_path: &str,
-    ) -> Result<ShadowRpc<Provider>, sqlx::Error> {
-        Ok(Self { provider, sqlite_manager: SqliteManager::new(db_path).await? })
+    /// Instatiate a Shadow RPC API, building a connection pool to the SQLite database
+    /// and initializing tables.
+    pub async fn new(provider: Provider, db_path: &str) -> Result<ShadowRpc<Provider>> {
+        Ok(Self { provider, sqlite_manager: ShadowSqliteDb::new(db_path).await? })
+    }
+
+    /// Initializes ShadowRpc, to be called from the `.extend_rpc_modules` reth hook
+    /// on node startup.
+    pub fn init<Node: FullNodeComponents>(
+        ctx: RpcContext<'_, Node>,
+        db_path_obj: PathBuf,
+        _: Provider, // passed only for type inference
+    ) -> Result<()> {
+        // Clone the provider so we can move it into the RPC builder thread
+        let provider = ctx.provider().clone();
+
+        // Start a new thread, build the ShadowRpc, and join it.
+        //
+        // We have to do it this way to avoid spawning a runtime within a runtime.
+        let shadow_rpc = std::thread::spawn(move || {
+            let rt = tokio::runtime::Runtime::new().expect("failed to spawn blocking runtime");
+            rt.block_on(async {
+                ShadowRpc::new(provider, db_path_obj.to_str().unwrap())
+                    .await
+                    .expect("failed to create ShadowRpc")
+            })
+        })
+        .join()
+        .map_err(|_| eyre!("failed to join ShadowRpc thread"))?;
+
+        // Merge the ShadowRpc into the reth context, which will make the API available.
+        ctx.modules
+            .merge_configured(shadow_rpc.into_rpc())
+            .map_err(|e| eyre!("failed to extend w/ ShadowRpc: {e}"))?;
+
+        Ok(())
     }
 }
 
