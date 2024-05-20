@@ -11,19 +11,6 @@ use shadow_reth_common::ShadowLog;
 
 use crate::{ShadowRpc, ShadowRpcApiServer};
 
-/// `shadow_getLogs` RPC request.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GetLogsRpcRequest {
-    /// Request identifier established by a client.
-    pub id: String,
-    /// Specifies version of JSON-RPC protocol.
-    pub json_rpc: String,
-    /// Indicates the method to be invoked.
-    pub method: String,
-    /// Contains parameters for request.
-    pub params: Vec<GetLogsParameters>,
-}
-
 /// Unvalidated parameters for `shadow_getLogs` RPC requests.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct GetLogsParameters {
@@ -31,24 +18,16 @@ pub struct GetLogsParameters {
     pub address: Vec<String>,
     /// Hash of block from which logs should originate. Using this field is equivalent
     /// to passing identical values for `fromBlock` and `toBlock`.
+    #[serde(rename = "blockHash")]
     pub block_hash: Option<String>,
     /// Start of block range from which logs should originate.
+    #[serde(rename = "fromBlock")]
     pub from_block: Option<String>,
     /// End of block range from which logs should originate.
+    #[serde(rename = "toBlock")]
     pub to_block: Option<String>,
     /// Array of 32-byte data topics.
-    pub topics: Vec<String>,
-}
-
-/// `shadow_getLogs` RPC response.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct GetLogsResponse {
-    /// Identifier for response.
-    pub id: String,
-    /// Specifies version of JSON-RPC protocol.
-    pub json_rpc: String,
-    /// Contains result sets from successful request execution.
-    pub result: Vec<GetLogsResult>,
+    pub topics: Option<Vec<String>>,
 }
 
 /// Inner result type for `shadow_getLogs` RPC responses.
@@ -57,20 +36,25 @@ pub struct GetLogsResult {
     /// Contract address from which the log originated.
     pub address: String,
     /// Hash of block from which the log originated.
+    #[serde(rename = "blockHash")]
     pub block_hash: String,
     /// Block number from which the log originated.
+    #[serde(rename = "blockNumber")]
     pub block_number: String,
     /// Contains one or more 32-byte non-indexed arguments of the log.
     pub data: Option<String>,
     /// Integer of the log index in the containing block.
+    #[serde(rename = "logIndex")]
     pub log_index: String,
     /// Indicates whether the log has been removed from the canonical chain.
     pub removed: bool,
     /// Array of topics.
     pub topics: [Option<String>; 4],
     /// Hash of transaction from which the log originated.
+    #[serde(rename = "transactionHash")]
     pub transaction_hash: String,
     /// Integer of the transaction index position from which the log originated.
+    #[serde(rename = "transactionIndex")]
     pub transaction_index: String,
 }
 
@@ -167,8 +151,8 @@ where
     P: BlockNumReader + BlockReaderIdExt + Clone + Unpin + 'static,
 {
     #[doc = "Returns shadow logs."]
-    async fn get_logs(&self, req: GetLogsRpcRequest) -> RpcResult<GetLogsResponse> {
-        let base_stmt = r#"
+    async fn get_logs(&self, params: GetLogsParameters) -> RpcResult<Vec<GetLogsResult>> {
+        let base_stmt = "
             SELECT
                 address,
                 block_hash,
@@ -185,16 +169,12 @@ where
                 transaction_index,
                 transaction_log_index
             FROM shadow_logs
-        "#;
+        ";
 
-        let validated_param_objs = req
-            .params
-            .into_iter()
-            .map(|param_obj| ValidatedQueryParams::new(&self.provider, param_obj))
-            .collect::<RpcResult<Vec<ValidatedQueryParams>>>()?;
+        let validated_param_objs = ValidatedQueryParams::new(&self.provider, params)?;
 
         let mut results: Vec<GetLogsResult> = vec![];
-        for query_params in validated_param_objs {
+        for query_params in [validated_param_objs] {
             let sql = format!("{base_stmt} {query_params}");
             let raw_rows: Vec<RawGetLogsRow> = sqlx::query_as(&sql)
                 .fetch_all(&self.sqlite_manager.pool)
@@ -212,7 +192,7 @@ where
             results.append(&mut result);
         }
 
-        Ok(GetLogsResponse { id: req.id, json_rpc: req.json_rpc, result: results })
+        Ok(results)
     }
 }
 
@@ -250,32 +230,40 @@ impl ValidatedQueryParams {
                 };
                 let to_tag = BlockNumberOrTag::from_str(&to_block)
                     .map_err(|e| ErrorObject::owned::<()>(-1, e.to_string(), None))?;
-                let to = match provider.block_by_number_or_tag(to_tag) {
-                    Ok(Some(b)) => b.number,
-                    Ok(None) => {
-                        return Err(ErrorObject::owned::<()>(
-                            -1,
-                            format!("No block found for block number or tag: {to_tag}"),
-                            None,
-                        ))
+                let to = if let BlockNumberOrTag::Number(n) = to_tag {
+                    n
+                } else {
+                    match provider.block_by_number_or_tag(to_tag) {
+                        Ok(Some(b)) => b.number,
+                        Ok(None) => {
+                            return Err(ErrorObject::owned::<()>(
+                                -1,
+                                format!("No block found for block number or tag: {to_tag}"),
+                                None,
+                            ))
+                        }
+                        Err(e) => return Err(ErrorObject::owned::<()>(-1, e.to_string(), None)),
                     }
-                    Err(e) => return Err(ErrorObject::owned::<()>(-1, e.to_string(), None)),
                 };
                 (from, to)
             }
             (None, Some(from_block), None) => {
                 let from_tag = BlockNumberOrTag::from_str(&from_block)
                     .map_err(|e| ErrorObject::owned::<()>(-1, e.to_string(), None))?;
-                let from = match provider.block_by_number_or_tag(from_tag) {
-                    Ok(Some(b)) => b.number,
-                    Ok(None) => {
-                        return Err(ErrorObject::owned::<()>(
-                            -1,
-                            format!("No block found for block number or tag: {from_tag}"),
-                            None,
-                        ))
+                let from = if let BlockNumberOrTag::Number(n) = from_tag {
+                    n
+                } else {
+                    match provider.block_by_number_or_tag(from_tag) {
+                        Ok(Some(b)) => b.number,
+                        Ok(None) => {
+                            return Err(ErrorObject::owned::<()>(
+                                -1,
+                                format!("No block found for block number or tag: {from_tag}"),
+                                None,
+                            ))
+                        }
+                        Err(e) => return Err(ErrorObject::owned::<()>(-1, e.to_string(), None)),
                     }
-                    Err(e) => return Err(ErrorObject::owned::<()>(-1, e.to_string(), None)),
                 };
                 let to = match provider.block_by_number_or_tag(BlockNumberOrTag::Latest) {
                     Ok(Some(b)) => b.number,
@@ -293,29 +281,37 @@ impl ValidatedQueryParams {
             (None, Some(from_block), Some(to_block)) => {
                 let from_tag = BlockNumberOrTag::from_str(&from_block)
                     .map_err(|e| ErrorObject::owned::<()>(-1, e.to_string(), None))?;
-                let from = match provider.block_by_number_or_tag(from_tag) {
-                    Ok(Some(b)) => b.number,
-                    Ok(None) => {
-                        return Err(ErrorObject::owned::<()>(
-                            -1,
-                            format!("No block found for block number or tag: {from_tag}"),
-                            None,
-                        ))
+                let from = if let BlockNumberOrTag::Number(n) = from_tag {
+                    n
+                } else {
+                    match provider.block_by_number_or_tag(from_tag) {
+                        Ok(Some(b)) => b.number,
+                        Ok(None) => {
+                            return Err(ErrorObject::owned::<()>(
+                                -1,
+                                format!("No block found for block number or tag: {from_tag}"),
+                                None,
+                            ))
+                        }
+                        Err(e) => return Err(ErrorObject::owned::<()>(-1, e.to_string(), None)),
                     }
-                    Err(e) => return Err(ErrorObject::owned::<()>(-1, e.to_string(), None)),
                 };
                 let to_tag = BlockNumberOrTag::from_str(&to_block)
                     .map_err(|e| ErrorObject::owned::<()>(-1, e.to_string(), None))?;
-                let to = match provider.block_by_number_or_tag(to_tag) {
-                    Ok(Some(b)) => b.number,
-                    Ok(None) => {
-                        return Err(ErrorObject::owned::<()>(
-                            -1,
-                            format!("No block found for block number or tag: {to_tag}"),
-                            None,
-                        ))
+                let to = if let BlockNumberOrTag::Number(n) = to_tag {
+                    n
+                } else {
+                    match provider.block_by_number_or_tag(to_tag) {
+                        Ok(Some(b)) => b.number,
+                        Ok(None) => {
+                            return Err(ErrorObject::owned::<()>(
+                                -1,
+                                format!("No block found for block number or tag: {to_tag}"),
+                                None,
+                            ))
+                        }
+                        Err(e) => return Err(ErrorObject::owned::<()>(-1, e.to_string(), None)),
                     }
-                    Err(e) => return Err(ErrorObject::owned::<()>(-1, e.to_string(), None)),
                 };
 
                 (from, to)
@@ -344,15 +340,25 @@ impl ValidatedQueryParams {
             )),
         };
 
-        if params.topics.len() > 4 {
-            return Err(ErrorObject::owned::<()>(32002, "Only up to four topics are allowed", None));
-        }
+        let topics = if let Some(t_list) = params.topics {
+            if t_list.len() > 4 {
+                return Err(ErrorObject::owned::<()>(
+                    32002,
+                    "Only up to four topics are allowed",
+                    None,
+                ));
+            } else {
+                let mut topics: [Option<String>; 4] = [None, None, None, None];
 
-        let mut topics: [Option<String>; 4] = [None, None, None, None];
+                for (idx, topic) in t_list.into_iter().enumerate() {
+                    topics[idx] = Some(topic);
+                }
 
-        for (idx, topic) in params.topics.into_iter().enumerate() {
-            topics[idx] = Some(topic);
-        }
+                topics
+            }
+        } else {
+            [None, None, None, None]
+        };
 
         Ok(ValidatedQueryParams { from_block, to_block, addresses: params.address, topics })
     }
@@ -432,7 +438,7 @@ mod tests {
             block_hash: Some(last_block_hash.to_string()),
             from_block: None,
             to_block: None,
-            topics: vec![],
+            topics: None,
         };
 
         assert!(ValidatedQueryParams::new(&mock_provider, params_with_block_hash).is_ok());
@@ -442,7 +448,7 @@ mod tests {
             block_hash: None,
             from_block: None,
             to_block: None,
-            topics: vec![],
+            topics: None,
         };
 
         let validated = ValidatedQueryParams::new(&mock_provider, params_with_defaults);
@@ -462,7 +468,7 @@ mod tests {
             block_hash: None,
             from_block: Some("earliest".to_string()),
             to_block: Some("latest".to_string()),
-            topics: vec![],
+            topics: None,
         };
         let validated = ValidatedQueryParams::new(&mock_provider, params_with_block_tags);
 
@@ -481,7 +487,7 @@ mod tests {
             block_hash: Some(first_block_hash.to_string()),
             from_block: Some(first_block_hash.to_string()),
             to_block: Some(last_block_hash.to_string()),
-            topics: vec![],
+            topics: None,
         };
         assert!(
             ValidatedQueryParams::new(&mock_provider, params_with_block_hash_and_range).is_err()
