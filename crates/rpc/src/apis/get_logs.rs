@@ -390,13 +390,13 @@ impl std::fmt::Display for ValidatedQueryParams {
         let block_range_clause =
             Some(format!("block_number BETWEEN {} AND {}", self.from_block, self.to_block));
 
-        let topic_0_clause = self.topics[0].as_ref().map(|t0| format!("topic_0 = {t0}"));
+        let topic_0_clause = self.topics[0].as_ref().map(|t| format!("topic_0 = X'{}'", &t[2..]));
 
-        let topic_1_clause = self.topics[1].as_ref().map(|t1| format!("topic_1 = {t1}"));
+        let topic_1_clause = self.topics[1].as_ref().map(|t| format!("topic_1 = X'{}'", &t[2..]));
 
-        let topic_2_clause = self.topics[2].as_ref().map(|t2| format!("topic_2 = {t2}"));
+        let topic_2_clause = self.topics[2].as_ref().map(|t| format!("topic_2 = X'{}'", &t[2..]));
 
-        let topic_3_clause = self.topics[3].as_ref().map(|t3| format!("topic_3 = {t3}"));
+        let topic_3_clause = self.topics[3].as_ref().map(|t| format!("topic_3 = X'{}'", &t[2..]));
 
         let clauses = [
             address_clause,
