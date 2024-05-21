@@ -83,7 +83,7 @@ mod tests {
     use shadow_reth_common::ShadowLog;
 
     use crate::{
-        apis::{GetLogsParameters, GetLogsResult},
+        apis::{AddressRepresentation, GetLogsParameters, GetLogsResult},
         ShadowRpc, ShadowRpcApiServer,
     };
 
@@ -152,11 +152,11 @@ mod tests {
         rpc.sqlite_manager.bulk_insert_into_shadow_log_table(logs).await.unwrap();
 
         let params = vec![GetLogsParameters {
-            address: vec![
+            address: Some(AddressRepresentation::ArrayOfStrings(vec![
                 "0x0fbc0a9be1e87391ed2c7d2bb275bec02f53241f".to_string(),
                 "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2".to_string(),
                 "0xc55126051b22ebb829d00368f4b12bde432de5da".to_string(),
-            ],
+            ])),
             block_hash: None,
             from_block: Some("0x11feef0".to_string()),
             to_block: Some("0x11feef1".to_string()),

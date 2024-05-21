@@ -11,20 +11,26 @@ use shadow_reth_common::ShadowLog;
 
 use crate::{ShadowRpc, ShadowRpcApiServer};
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(untagged)]
+pub enum AddressRepresentation {
+    ArrayOfStrings(Vec<String>),
+    Bytes([u8; 20]),
+    String(String),
+}
+
 /// Unvalidated parameters for `shadow_getLogs` RPC requests.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct GetLogsParameters {
     /// Contains contract addresses from which logs should originate.
-    pub address: Vec<String>,
+    pub address: Option<AddressRepresentation>,
     /// Hash of block from which logs should originate. Using this field is equivalent
     /// to passing identical values for `fromBlock` and `toBlock`.
-    #[serde(rename = "blockHash")]
     pub block_hash: Option<String>,
     /// Start of block range from which logs should originate.
-    #[serde(rename = "fromBlock")]
     pub from_block: Option<String>,
     /// End of block range from which logs should originate.
-    #[serde(rename = "toBlock")]
     pub to_block: Option<String>,
     /// Array of 32-byte data topics.
     pub topics: Option<Vec<String>>,
@@ -32,29 +38,25 @@ pub struct GetLogsParameters {
 
 /// Inner result type for `shadow_getLogs` RPC responses.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct GetLogsResult {
     /// Contract address from which the log originated.
     pub address: String,
     /// Hash of block from which the log originated.
-    #[serde(rename = "blockHash")]
     pub block_hash: String,
     /// Block number from which the log originated.
-    #[serde(rename = "blockNumber")]
     pub block_number: String,
     /// Contains one or more 32-byte non-indexed arguments of the log.
     pub data: Option<String>,
     /// Integer of the log index in the containing block.
-    #[serde(rename = "logIndex")]
     pub log_index: String,
     /// Indicates whether the log has been removed from the canonical chain.
     pub removed: bool,
     /// Array of topics.
     pub topics: [Option<String>; 4],
     /// Hash of transaction from which the log originated.
-    #[serde(rename = "transactionHash")]
     pub transaction_hash: String,
     /// Integer of the transaction index position from which the log originated.
-    #[serde(rename = "transactionIndex")]
     pub transaction_index: String,
 }
 
@@ -202,17 +204,35 @@ impl ValidatedQueryParams {
         provider: &(impl BlockNumReader + BlockReaderIdExt + Clone + Unpin + 'static),
         params: GetLogsParameters,
     ) -> RpcResult<Self> {
-        let address = params
-            .address
-            .into_iter()
-            .map(|addr| {
-                addr.parse::<Address>()
-                    .map_err(|e| ErrorObject::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None))
-            })
-            .collect::<RpcResult<Vec<Address>>>()?
-            .into_iter()
-            .map(|a| a.to_string())
-            .collect::<Vec<String>>();
+        let address = if let Some(addr_repr) = params.address {
+            match addr_repr {
+                AddressRepresentation::String(addr) => {
+                    let parsed = addr
+                        .parse::<Address>()
+                        .map_err(|e| {
+                            ErrorObject::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None)
+                        })?
+                        .to_string();
+                    vec![parsed]
+                }
+                AddressRepresentation::ArrayOfStrings(array) => array
+                    .into_iter()
+                    .map(|addr| {
+                        addr.parse::<Address>().map_err(|e| {
+                            ErrorObject::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None)
+                        })
+                    })
+                    .collect::<RpcResult<Vec<Address>>>()?
+                    .into_iter()
+                    .map(|a| a.to_string())
+                    .collect::<Vec<String>>(),
+                AddressRepresentation::Bytes(bytes) => {
+                    vec![Address::from_slice(&bytes).to_string()]
+                }
+            }
+        } else {
+            vec![]
+        };
 
         let (from_block, to_block) = match (params.block_hash, params.from_block, params.to_block) {
             (None, None, None) => {
@@ -429,7 +449,7 @@ mod tests {
 
     use super::ValidatedQueryParams;
 
-    use super::GetLogsParameters;
+    use super::{AddressRepresentation, GetLogsParameters};
 
     #[tokio::test]
     async fn test_query_param_validation() {
@@ -447,7 +467,9 @@ mod tests {
             .extend_blocks([(first_block_hash, first_block), (last_block_hash, last_block)]);
 
         let params_with_block_hash = GetLogsParameters {
-            address: vec!["0x0000000000000000000000000000000000000000".to_string()],
+            address: Some(AddressRepresentation::ArrayOfStrings(vec![
+                "0x0000000000000000000000000000000000000000".to_string(),
+            ])),
             block_hash: Some(last_block_hash.to_string()),
             from_block: None,
             to_block: None,
@@ -457,7 +479,9 @@ mod tests {
         assert!(ValidatedQueryParams::new(&mock_provider, params_with_block_hash).is_ok());
 
         let params_with_defaults = GetLogsParameters {
-            address: vec!["0x0000000000000000000000000000000000000000".to_string()],
+            address: Some(AddressRepresentation::ArrayOfStrings(vec![
+                "0x0000000000000000000000000000000000000000".to_string(),
+            ])),
             block_hash: None,
             from_block: None,
             to_block: None,
@@ -477,7 +501,9 @@ mod tests {
         );
 
         let params_with_block_tags = GetLogsParameters {
-            address: vec!["0x0000000000000000000000000000000000000000".to_string()],
+            address: Some(AddressRepresentation::ArrayOfStrings(vec![
+                "0x0000000000000000000000000000000000000000".to_string(),
+            ])),
             block_hash: None,
             from_block: Some("earliest".to_string()),
             to_block: Some("latest".to_string()),
@@ -495,8 +521,53 @@ mod tests {
             }
         );
 
+        let params_with_non_array_address = GetLogsParameters {
+            address: Some(AddressRepresentation::String(
+                "0x0000000000000000000000000000000000000000".to_string(),
+            )),
+            block_hash: None,
+            from_block: Some("earliest".to_string()),
+            to_block: Some("latest".to_string()),
+            topics: None,
+        };
+        let validated = ValidatedQueryParams::new(&mock_provider, params_with_non_array_address);
+
+        assert_eq!(
+            validated.unwrap(),
+            ValidatedQueryParams {
+                addresses: vec!["0x0000000000000000000000000000000000000000".to_string()],
+                from_block: 0,
+                to_block: 10,
+                topics: [None, None, None, None]
+            }
+        );
+
+        let params_with_bytes_as_address = GetLogsParameters {
+            address: Some(AddressRepresentation::Bytes([
+                192, 42, 170, 57, 178, 35, 254, 141, 10, 14, 92, 79, 39, 234, 217, 8, 60, 117, 108,
+                194,
+            ])),
+            block_hash: None,
+            from_block: Some("earliest".to_string()),
+            to_block: Some("latest".to_string()),
+            topics: None,
+        };
+        let validated = ValidatedQueryParams::new(&mock_provider, params_with_bytes_as_address);
+
+        assert_eq!(
+            validated.unwrap(),
+            ValidatedQueryParams {
+                addresses: vec!["0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".to_string()],
+                from_block: 0,
+                to_block: 10,
+                topics: [None, None, None, None]
+            }
+        );
+
         let params_with_invalid_address = GetLogsParameters {
-            address: vec!["0x123".to_string()],
+            address: Some(AddressRepresentation::ArrayOfStrings(vec![
+                "0x0000000000000000000000000000000000000000".to_string(),
+            ])),
             block_hash: Some(first_block_hash.to_string()),
             from_block: Some(first_block_hash.to_string()),
             to_block: Some(last_block_hash.to_string()),
@@ -505,7 +576,9 @@ mod tests {
         assert!(ValidatedQueryParams::new(&mock_provider, params_with_invalid_address).is_err());
 
         let params_with_block_hash_and_range = GetLogsParameters {
-            address: vec!["0x0000000000000000000000000000000000000000".to_string()],
+            address: Some(AddressRepresentation::ArrayOfStrings(vec![
+                "0x0000000000000000000000000000000000000000".to_string(),
+            ])),
             block_hash: Some(first_block_hash.to_string()),
             from_block: Some(first_block_hash.to_string()),
             to_block: Some(last_block_hash.to_string()),
