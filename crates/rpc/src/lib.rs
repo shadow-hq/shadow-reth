@@ -57,13 +57,15 @@ where
         let shadow_rpc = std::thread::spawn(move || {
             let rt = tokio::runtime::Runtime::new().expect("failed to spawn blocking runtime");
             rt.block_on(async {
-                ShadowRpc::new(provider, db_path_obj.to_str().unwrap())
-                    .await
-                    .expect("failed to create ShadowRpc")
+                ShadowRpc::new(
+                    provider,
+                    db_path_obj.to_str().ok_or(eyre!("failed to parse DB path"))?,
+                )
+                .await
             })
         })
         .join()
-        .map_err(|_| eyre!("failed to join ShadowRpc thread"))?;
+        .map_err(|_| eyre!("failed to join ShadowRpc thread"))??;
 
         // Merge the ShadowRpc into the reth context, which will make the API available.
         ctx.modules

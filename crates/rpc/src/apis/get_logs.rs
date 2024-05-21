@@ -185,7 +185,7 @@ where
                 .into_iter()
                 .map(ShadowLog::try_from)
                 .collect::<Result<Vec<ShadowLog>, ParseIntError>>()
-                .unwrap();
+                .map_err(|e| ErrorObject::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None))?;
             let mut result = intermediate_results
                 .into_iter()
                 .map(GetLogsResult::from)
@@ -205,7 +205,12 @@ impl ValidatedQueryParams {
         let address = params
             .address
             .into_iter()
-            .map(|addr| addr.parse::<Address>().unwrap())
+            .map(|addr| {
+                addr.parse::<Address>()
+                    .map_err(|e| ErrorObject::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None))
+            })
+            .collect::<RpcResult<Vec<Address>>>()?
+            .into_iter()
             .map(|a| a.to_string())
             .collect::<Vec<String>>();
 
@@ -442,7 +447,7 @@ mod tests {
             .extend_blocks([(first_block_hash, first_block), (last_block_hash, last_block)]);
 
         let params_with_block_hash = GetLogsParameters {
-            address: vec!["0x123".to_string()],
+            address: vec!["0x0000000000000000000000000000000000000000".to_string()],
             block_hash: Some(last_block_hash.to_string()),
             from_block: None,
             to_block: None,
@@ -452,7 +457,7 @@ mod tests {
         assert!(ValidatedQueryParams::new(&mock_provider, params_with_block_hash).is_ok());
 
         let params_with_defaults = GetLogsParameters {
-            address: vec!["0x123".to_string()],
+            address: vec!["0x0000000000000000000000000000000000000000".to_string()],
             block_hash: None,
             from_block: None,
             to_block: None,
@@ -464,7 +469,7 @@ mod tests {
         assert_eq!(
             validated.unwrap(),
             ValidatedQueryParams {
-                addresses: vec!["0x123".to_string()],
+                addresses: vec!["0x0000000000000000000000000000000000000000".to_string()],
                 from_block: 10,
                 to_block: 10,
                 topics: [None, None, None, None]
@@ -472,7 +477,7 @@ mod tests {
         );
 
         let params_with_block_tags = GetLogsParameters {
-            address: vec!["0x123".to_string()],
+            address: vec!["0x0000000000000000000000000000000000000000".to_string()],
             block_hash: None,
             from_block: Some("earliest".to_string()),
             to_block: Some("latest".to_string()),
@@ -483,15 +488,24 @@ mod tests {
         assert_eq!(
             validated.unwrap(),
             ValidatedQueryParams {
-                addresses: vec!["0x123".to_string()],
+                addresses: vec!["0x0000000000000000000000000000000000000000".to_string()],
                 from_block: 0,
                 to_block: 10,
                 topics: [None, None, None, None]
             }
         );
 
-        let params_with_block_hash_and_range = GetLogsParameters {
+        let params_with_invalid_address = GetLogsParameters {
             address: vec!["0x123".to_string()],
+            block_hash: Some(first_block_hash.to_string()),
+            from_block: Some(first_block_hash.to_string()),
+            to_block: Some(last_block_hash.to_string()),
+            topics: None,
+        };
+        assert!(ValidatedQueryParams::new(&mock_provider, params_with_invalid_address).is_err());
+
+        let params_with_block_hash_and_range = GetLogsParameters {
+            address: vec!["0x0000000000000000000000000000000000000000".to_string()],
             block_hash: Some(first_block_hash.to_string()),
             from_block: Some(first_block_hash.to_string()),
             to_block: Some(last_block_hash.to_string()),
