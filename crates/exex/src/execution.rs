@@ -11,7 +11,7 @@ use revm::{
     DatabaseCommit, Evm, StateBuilder,
 };
 use revm_primitives::{
-    CfgEnvWithHandlerCfg, EVMError, ExecutionResult, HashMap, ResultAndState, U256,
+    CfgEnvWithHandlerCfg, EVMError, ExecutionResult, HashMap, ResultAndState, B256, U256,
 };
 use shadow_reth_common::{ShadowLog, ToLowerHex};
 use std::sync::Arc;
@@ -30,6 +30,7 @@ pub(crate) struct ShadowExecutor<'a, DB: StateProvider> {
 #[derive(Debug)]
 pub(crate) struct ExecutedBlock {
     block: Block,
+    canonical_block_hash: B256,
     results: HashMap<TransactionSigned, ExecutionResult>,
 }
 
@@ -47,7 +48,7 @@ impl ExecutedBlock {
                         block_log_index += 1;
                         ShadowLog {
                             address: log.address.to_lower_hex(),
-                            block_hash: self.block.hash_slow().to_lower_hex(),
+                            block_hash: self.canonical_block_hash.to_lower_hex(),
                             block_log_index,
                             block_number: self.block.number,
                             block_timestamp: self.block.timestamp,
@@ -84,6 +85,9 @@ impl<'a, DB: StateProvider> ShadowExecutor<'a, DB> {
     /// Executes a single block (without verifying them) and returns their [`ExecutionResult`]s
     /// within a [`ExecutedBlock`].
     pub(crate) fn execute_one(&mut self, block: BlockWithSenders) -> Result<ExecutedBlock> {
+        // Calculate the canonical block hash, before making state-changing operations.
+        let canonical_block_hash = block.block.hash_slow();
+
         // Update the base fee per gas to 0 to avoid any gas fees.
         // This will allow us to execute shadow bytecode without running out of gas.
         let mut block = block;
@@ -130,7 +134,7 @@ impl<'a, DB: StateProvider> ShadowExecutor<'a, DB> {
             self.evm.db_mut().merge_transitions(BundleRetention::Reverts);
         }
 
-        Ok(ExecutedBlock { block: block.block, results })
+        Ok(ExecutedBlock { canonical_block_hash, block: block.block, results })
     }
 }
 
