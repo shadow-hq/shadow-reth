@@ -115,7 +115,7 @@ jobs:
           cache-on-failure: true
 
       - name: "Set up Cloud for local infra"
-        uses: "google-github-actions/setup-gcloud@v1"
+        uses: "google-github-actions/setup-gcloud@v2"
 
       - name: Run sccache-cache
         uses: mozilla-actions/sccache-action@v0.0.3
