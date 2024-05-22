@@ -8,7 +8,7 @@ At a high level, the Shadow ExEx works as follows:
 
 ### Chain Committed
 
-When blocks are committed to the chain, reth emits `ExExNotification::ChainCommitted` for each transaction in the block. This notification contains the entire chain state, along with helpful block and transaction information such as `SealedBlockWithSenders`. `ShadowExEx` needs to re-execute each transaction in the block using `ShadowDatabase` (which implements `revm::Database`). To do this, we use `ShadowExecutor`, a simple block executor using revm, which will execute each transaction in a given block and commits changes to `ShadowDatabase`. When block execution is complete, shadow logs can be recovered from the `ExecutedBlock`, and stored in the SQLite database.
+When blocks are committed to the chain, Reth emits `ExExNotification::ChainCommitted` for each transaction in the block. This notification contains the entire chain state, along with helpful block and transaction information such as `SealedBlockWithSenders`. `ShadowExEx` needs to re-execute each transaction in the block using `ShadowDatabase` (which implements `revm::Database`). To do this, we use `ShadowExecutor`, a simple block executor using revm, which will execute each transaction in a given block and commits changes to `ShadowDatabase`. When block execution is complete, shadow logs can be recovered from the `ExecutedBlock`, and stored in the SQLite database.
 
 #### ShadowDatabase
 
@@ -47,11 +47,12 @@ impl<DB: StateProvider> DatabaseRef for ShadowDatabase<DB> {
     ...
 }
 ```
+
 </details>
 
 #### ShadowExecutor
 
-`ShadowExecutor` is a simple block executor using revm, which will execute each transaction in a given block and commit changes to `ShadowDatabase`. It is used by `ShadowExEx` to re-execute transactions in a block and store shadow logs in the SQLite database. When executing a block, the `base_fee_per_gas` for the block is set to `0`, allowing shadow contracts to perform arbitrary computations without worrying about gas costs.
+`ShadowExecutor` is a simple block executor using revm, which will execute each transaction in a given block and commit changes to `ShadowDatabase`. It is used by `ShadowExEx` to re-execute transactions in a block and store shadow logs in the SQLite database.
 
 `ShadowExecutor` uses `transact_preverified` to execute transactions in a block, since:
 
@@ -60,7 +61,7 @@ impl<DB: StateProvider> DatabaseRef for ShadowDatabase<DB> {
 
 ### Chain Reverted
 
-When a reorg occurs, reth emits `ExExNotification::ChainReverted`, with the chain of blocks (and their state) that were reverted and are no longer part of canonical mainnet state. `ShadowExEx` handles these notifications by marking the logs as removed in the SQLite database:
+When a reorg occurs, Reth emits `ExExNotification::ChainReverted`, with the chain of blocks (and their state) that were reverted and are no longer part of canonical mainnet state. `ShadowExEx` handles these notifications by marking the logs as removed in the SQLite database:
 
 ```rust
 ExExNotification::ChainReverted { old: chain } => {
