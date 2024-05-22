@@ -118,7 +118,7 @@ jobs:
         uses: "google-github-actions/setup-gcloud@v1"
 
       - name: Run sccache-cache
-        uses: mozilla-actions/sccache-action@v0.0.3
+        uses: mozilla-actions/sccache-action@v0.0.4
         with:
           version: "v0.5.4"
 
