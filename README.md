@@ -2,7 +2,7 @@
 
 A single-node implementation of a Shadow RPC on top of Reth.
 
-shadow-reth contains a series of [Reth](https://github.com/paradigmxyz/reth) modifications that enable you to generate shadow events via [Execution Extensions](https://www.paradigm.xyz/2024/05/reth-exex), and retrieve them easily with a custom RPC Extension.
+`shadow-reth` contains a series of [Reth](https://github.com/paradigmxyz/reth) modifications that enable you to generate shadow events via [Execution Extensions](https://www.paradigm.xyz/2024/05/reth-exex), and retrieve them easily with a custom RPC Extension.
 
 See our [blog post](https://blog.shadow.xyz/shadow-reth/) for more information.
 
@@ -24,7 +24,7 @@ cd shadow-reth
 
 ### Step 2: Configure your shadow node
 
-To quickly get started, you can use the example `shadow.json` file in this repository. It contains recompiled bytecode for the WETH contract with an added ShadowTransfer event.
+To quickly get started, you can use the example `shadow.json` file in this repository. It contains recompiled bytecode for the WETH contract with an added `ShadowTransfer` event.
 
 ```bash
 cp shadow.json.example shadow.json
@@ -187,10 +187,10 @@ As a result, `shadow-reth` allows you to run a trustless, fully open-source vers
 
 ## Limitations
 
-- <b>Gas limits:</b> shadow-reth does not override gas limits when re-executing a block with ShadowExecutor for data consistency reasons. Transactions may fail if they run out of gas during shadow re-execution, and no shadow events will be emitted for that transaction.
-- <b>Backfilling:</b> shadow-reth does not backfill shadow events. If you start running shadow-reth on a synced Reth node, shadow-reth will only generate shadow events for blocks that have been processed since shadow-reth was started. If you want historical shadow events, you’ll need to re-sync your Reth node from genesis. We’re working closely with the Reth team to improve this.
-- <b>Decoding:</b> shadow-reth is designed to be analogous to a regular node, which doesn’t include event decoding. If you want to decode shadow events, we recommend polling the shadow_getLogs endpoint in a separate process.
-- <b>Websockets:</b> Shadow events will not be published over eth_subcribe websocket subscriptions.
+- <b>Gas limits:</b> `shadow-reth` does not override gas limits when re-executing a block with `ShadowExecutor` for data consistency reasons. Transactions may fail if they run out of gas during shadow re-execution, and no shadow events will be emitted for that transaction.
+- <b>Backfilling:</b> `shadow-reth` does not backfill shadow events. If you start running `shadow-reth` on a synced Reth node, `shadow-ret` will only generate shadow events for blocks that have been processed since `shadow-reth` was started. If you want historical shadow events, you’ll need to re-sync your Reth node from genesis. We’re working closely with the Reth team to improve this.
+- <b>Decoding:</b> `shadow-reth` is designed to be analogous to a regular node, which doesn’t include event decoding. If you want to decode shadow events, we recommend polling the `shadow_getLogs` endpoint in a separate process.
+- <b>Websockets:</b> Shadow events will not be published over `eth_subscribe` websocket subscriptions.
 
 ## Getting Help
 
@@ -214,4 +214,4 @@ This code has not been audited, and should not be used in any production systems
 `shadow-reth` wouldn't be possible without the hard work of the following projects:
 
 - [Reth](https://github.com/paradigmxyz/reth): The foundation of `shadow-reth`, an Ethereum full node implementation that is focused on being user-friendly, highly modular, as well as being fast and efficient.
-- [Revm](https://github.com/bluealloy/revm): Revm is an EVM written in Rust that is focused on speed and simplicity. Revm is the backbone of shadow-reth’s ShadowExecutor, as well as Reth itself.
+- [Revm](https://github.com/bluealloy/revm): Revm is an EVM written in Rust that is focused on speed and simplicity. Revm is the backbone of `shadow-reth`’s `ShadowExecutor`, as well as Reth itself.
