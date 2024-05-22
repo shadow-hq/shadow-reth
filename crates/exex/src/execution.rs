@@ -88,11 +88,7 @@ impl<'a, DB: StateProvider> ShadowExecutor<'a, DB> {
         // Calculate the canonical block hash, before making state-changing operations.
         let canonical_block_hash = block.block.hash_slow();
 
-        // Update the base fee per gas to 0 to avoid any gas fees.
-        // This will allow us to execute shadow bytecode without running out of gas.
-        let mut block = block;
-        block.block.header.base_fee_per_gas = Some(0);
-
+        // Extract the transactions from the block.
         let transactions = block.clone().into_transactions();
         let mut results = HashMap::with_capacity(transactions.len());
 
