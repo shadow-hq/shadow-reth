@@ -125,7 +125,7 @@ Here's how it works at a high level:
 
    > Note: All log index fields (`block_log_index`, `transaction_log_index`) _will include_ shadow events. As a result, shadow events will be interleaved with canonical events in the same block, and log indices _will not_ match the canonical chain.
 
-3. A namespaced `shadow` JSON-RPC (see [ShadowRpc](./crates/rpc) is exposed, which allows you to interact with your shadowed contracts. Currently, only `shadow_getLogs` is implemented, which allows you to retrieve Shadow Events emitted by your shadow contracts.
+3. A namespaced `shadow` JSON-RPC (see [ShadowRpc](./crates/rpc)) is exposed, which allows you to interact with your shadowed contracts. Currently, only `shadow_getLogs` is implemented, which allows you to retrieve Shadow Events emitted by your shadow contracts.
 
    > Note: for this example, we've added a simple `ShadowTransfer(address,address,uint256)` event to the Wrapped Ether shadow bytecode. This event has the signature `0xe7742d659c2c3c18fba9c357096ed6d568223cb89064e8bc947b709cba2a6ab7`.
 
