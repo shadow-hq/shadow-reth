@@ -8,7 +8,7 @@ description = "A book on all things Shadow Reth"
 
 [output.html]
 theme = "book/theme"
-git-repository-url = "https://github.com/metro-xyz/shadow-reth"
+git-repository-url = "https://github.com/shadow-hq/shadow-reth"
 default-theme = "ayu"
 no-section-label = true
 
