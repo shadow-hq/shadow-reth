@@ -85,7 +85,7 @@ jobs:
 
   test:
     name: Test Suite
-    runs-on: ubuntu-latest-32-core
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout sources
