@@ -19,7 +19,8 @@ use reth_node_api::FullNodeComponents;
 use reth_provider::{DatabaseProviderFactory, HistoricalStateProviderRef};
 use reth_tracing::tracing::{debug, info};
 use serde_json::Value;
-use shadow_reth_common::ShadowSqliteDb;
+use shadow_reth_common::{ShadowLog, ShadowSqliteDb};
+use tokio::sync::broadcast::Sender;
 
 use crate::db::ShadowDatabase;
 
@@ -31,12 +32,13 @@ pub struct ShadowExEx {
     contracts: ShadowContracts,
     /// The [`ShadowSqliteDb`] for the shadow database.
     sqlite_db: ShadowSqliteDb,
+    shadow_log_tx: Sender<ShadowLog>,
 }
 
 impl ShadowExEx {
     /// Creates a new instance of the ShadowExEx. This will attempt to load
     /// the configuration from `shadow.json` in the current working directory.
-    pub async fn new(db_path: PathBuf) -> Result<Self> {
+    pub async fn new(db_path: PathBuf, shadow_log_tx: Sender<ShadowLog>) -> Result<Self> {
         // read config from `./shadow.json` as a serde_json::Value
         let config: Value =
             serde_json::from_str(&std::fs::read_to_string("shadow.json").map_err(|e| {
@@ -57,15 +59,16 @@ impl ShadowExEx {
         )
         .await?;
 
-        Ok(Self { contracts, sqlite_db })
+        Ok(Self { contracts, sqlite_db, shadow_log_tx })
     }
 
     /// The initialization logic of the ExEx is just an async function.
     pub async fn init<Node: FullNodeComponents>(
         ctx: ExExContext<Node>,
+        tx: Sender<ShadowLog>,
     ) -> Result<impl Future<Output = Result<()>>> {
         let db_path = ctx.data_dir.db();
-        let this = Self::new(db_path).await?;
+        let this = Self::new(db_path, tx).await?;
 
         info!("Initialized ShadowExEx with {} shadowed contracts", this.contracts.len());
 
@@ -124,6 +127,10 @@ impl ShadowExEx {
                             )
                         })
                         .collect::<Vec<_>>();
+
+                    for log in shadow_logs.clone() {
+                        self.shadow_log_tx.send(log)?;
+                    }
 
                     // Create a new runtime to send the shadow logs to the shadow database.
                     tokio::spawn({

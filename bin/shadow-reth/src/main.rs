@@ -7,6 +7,7 @@
 
 use eyre::Result;
 use reth_node_ethereum::EthereumNode;
+use shadow_reth_common::ShadowLog;
 use shadow_reth_exex::ShadowExEx;
 use shadow_reth_rpc::ShadowRpc;
 
@@ -18,12 +19,13 @@ fn main() -> Result<()> {
 
     reth::cli::Cli::parse_args().run(|builder, _| async move {
         let db_path_obj = builder.data_dir().db().join("shadow.db");
+        let (tx, rx) = tokio::sync::broadcast::channel::<ShadowLog>(1000);
 
         // Start reth w/ the shadow exex.
         let handle = builder
             .node(EthereumNode::default())
-            .install_exex("ShadowExEx", ShadowExEx::init)
-            .extend_rpc_modules(move |ctx| ShadowRpc::init(ctx, db_path_obj))
+            .install_exex("ShadowExEx", move |ctx| async { ShadowExEx::init(ctx, tx).await })
+            .extend_rpc_modules(move |ctx| ShadowRpc::init(ctx, db_path_obj, rx))
             .launch()
             .await?;
 

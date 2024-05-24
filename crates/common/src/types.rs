@@ -1,5 +1,7 @@
+use serde::{Deserialize, Serialize};
+
 /// A shadow log entry.
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ShadowLog {
     /// Contract address from which the log originated.
     pub address: String,

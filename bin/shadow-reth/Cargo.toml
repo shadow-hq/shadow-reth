@@ -15,6 +15,7 @@ workspace = true
 
 [dependencies]
 # Shadow
+shadow-reth-common.workspace = true
 shadow-reth-exex.workspace = true
 shadow-reth-rpc.workspace = true
 
@@ -24,3 +25,4 @@ reth-node-ethereum.workspace = true
 
 # Crates
 eyre.workspace = true
+tokio.workspace = true

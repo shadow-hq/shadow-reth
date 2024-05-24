@@ -19,4 +19,5 @@ reth-tracing.workspace = true
 
 # Crates
 eyre.workspace = true
+serde.workspace = true
 sqlx.workspace = true

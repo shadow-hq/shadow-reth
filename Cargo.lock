@@ -7307,8 +7307,10 @@ dependencies = [
  "eyre",
  "reth",
  "reth-node-ethereum",
+ "shadow-reth-common",
  "shadow-reth-exex",
  "shadow-reth-rpc",
+ "tokio",
 ]
 
 [[package]]
@@ -7318,6 +7320,7 @@ dependencies = [
  "eyre",
  "reth-primitives",
  "reth-tracing",
+ "serde",
  "sqlx",
 ]
 

@@ -10,17 +10,25 @@ use std::path::PathBuf;
 
 use apis::{GetLogsParameters, GetLogsResult};
 use eyre::{eyre, Result};
-use jsonrpsee::{core::RpcResult, proc_macros::rpc};
+use jsonrpsee::{
+    core::{async_trait, RpcResult, SubscriptionResult},
+    proc_macros::rpc,
+    PendingSubscriptionSink,
+};
 use reth_node_api::FullNodeComponents;
 use reth_node_builder::rpc::RpcContext;
 use reth_provider::{BlockNumReader, BlockReaderIdExt};
-use shadow_reth_common::ShadowSqliteDb;
+use shadow_reth_common::{ShadowLog, ShadowSqliteDb};
+use tokio::sync::broadcast::Receiver;
 
 #[rpc(server, namespace = "shadow")]
 pub trait ShadowRpcApi {
     /// Returns shadow logs.
     #[method(name = "getLogs")]
     async fn get_logs(&self, params: GetLogsParameters) -> RpcResult<Vec<GetLogsResult>>;
+    /// Subscribe.
+    #[subscription(name = "subscribe", item = String)]
+    async fn subscribe(&self) -> SubscriptionResult;
 }
 
 /// Wrapper around an RPC provider and a database connection pool.
@@ -29,18 +37,28 @@ pub struct ShadowRpc<P> {
     provider: P,
     /// Database manager.
     sqlite_manager: ShadowSqliteDb,
+    /// Shadow log real-time receiver.
+    shadow_log_rx: Receiver<ShadowLog>,
 }
 
 impl<Provider> ShadowRpc<Provider> {
     /// Instatiate a Shadow RPC API, building a connection pool to the SQLite database
     /// and initializing tables.
-    pub async fn new(provider: Provider, db_path: &str) -> Result<ShadowRpc<Provider>> {
-        Ok(Self { provider, sqlite_manager: ShadowSqliteDb::new(db_path).await? })
+    pub async fn new(
+        provider: Provider,
+        db_path: &str,
+        shadow_log_rx: Receiver<ShadowLog>,
+    ) -> Result<ShadowRpc<Provider>> {
+        Ok(Self { provider, sqlite_manager: ShadowSqliteDb::new(db_path).await?, shadow_log_rx })
     }
 
     /// Initializes ShadowRpc, to be called from the `.extend_rpc_modules` reth hook
     /// on node startup.
-    pub fn init<Node>(ctx: RpcContext<'_, Node>, db_path_obj: PathBuf) -> Result<()>
+    pub fn init<Node>(
+        ctx: RpcContext<'_, Node>,
+        db_path_obj: PathBuf,
+        shadow_log_rx: Receiver<ShadowLog>,
+    ) -> Result<()>
     where
         Node: FullNodeComponents<Provider = Provider>,
         Node::Provider: BlockNumReader + BlockReaderIdExt + Clone + Unpin + 'static,
@@ -56,6 +74,7 @@ impl<Provider> ShadowRpc<Provider> {
             rt.block_on(ShadowRpc::new(
                 provider,
                 db_path_obj.to_str().ok_or_else(|| eyre!("failed to parse DB path"))?,
+                shadow_log_rx,
             ))
         })
         .join()
@@ -67,6 +86,20 @@ impl<Provider> ShadowRpc<Provider> {
             .map_err(|e| eyre!("failed to extend w/ ShadowRpc: {e}"))?;
 
         Ok(())
+    }
+}
+
+#[async_trait]
+impl<P> ShadowRpcApiServer for ShadowRpc<P>
+where
+    P: BlockNumReader + BlockReaderIdExt + Clone + Unpin + 'static,
+{
+    async fn get_logs(&self, params: GetLogsParameters) -> RpcResult<Vec<GetLogsResult>> {
+        self.get_logs_impl(params).await
+    }
+
+    async fn subscribe(&self, pending: PendingSubscriptionSink) -> SubscriptionResult {
+        self.subscribe_impl(pending).await
     }
 }
 
@@ -104,7 +137,10 @@ mod tests {
 
         let testing_db_path = std::env::temp_dir().join("test.db");
 
-        let rpc = ShadowRpc::new(mock_provider, testing_db_path.to_str().unwrap()).await.unwrap();
+        let (_tx, rx) = tokio::sync::broadcast::channel::<ShadowLog>(16);
+
+        let rpc =
+            ShadowRpc::new(mock_provider, testing_db_path.to_str().unwrap(), rx).await.unwrap();
 
         let logs = vec![
             ShadowLog {

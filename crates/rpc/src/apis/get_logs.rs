@@ -3,7 +3,7 @@
 use std::{num::ParseIntError, str::FromStr};
 
 use jsonrpsee::{
-    core::{async_trait, RpcResult},
+    core::RpcResult,
     types::{error::INTERNAL_ERROR_CODE, ErrorObject},
 };
 use reth_primitives::{hex, Address, BlockNumberOrTag, B256};
@@ -11,7 +11,7 @@ use reth_provider::{BlockNumReader, BlockReaderIdExt};
 use serde::{Deserialize, Serialize};
 use shadow_reth_common::ShadowLog;
 
-use crate::{ShadowRpc, ShadowRpcApiServer};
+use crate::ShadowRpc;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(untagged)]
@@ -149,13 +149,12 @@ impl TryFrom<RawGetLogsRow> for ShadowLog {
     }
 }
 
-#[async_trait]
-impl<P> ShadowRpcApiServer for ShadowRpc<P>
+impl<P> ShadowRpc<P>
 where
     P: BlockNumReader + BlockReaderIdExt + Clone + Unpin + 'static,
 {
-    // todo: move to common sqlite module
-    async fn get_logs(&self, params: GetLogsParameters) -> RpcResult<Vec<GetLogsResult>> {
+    /// TODO: Blah.
+    pub async fn get_logs_impl(&self, params: GetLogsParameters) -> RpcResult<Vec<GetLogsResult>> {
         let base_stmt = "
             SELECT
                 address,
