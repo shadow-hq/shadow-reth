@@ -3,6 +3,8 @@
 //! Works by using [`shadow-reth-exex`] to replay canonical transactions with shadow bytecode,
 //! and [`shadow-reth-rpc`] to provide an RPC interface for interacting with shadow data.
 
+#![cfg_attr(not(test), warn(unused_crate_dependencies))]
+
 use eyre::Result;
 use reth_node_ethereum::EthereumNode;
 use shadow_reth_exex::ShadowExEx;
@@ -21,10 +23,7 @@ fn main() -> Result<()> {
         let handle = builder
             .node(EthereumNode::default())
             .install_exex("ShadowExEx", ShadowExEx::init)
-            .extend_rpc_modules(move |ctx| {
-                let provider = ctx.provider().clone();
-                ShadowRpc::init(ctx, db_path_obj, provider)
-            })
+            .extend_rpc_modules(move |ctx| ShadowRpc::init(ctx, db_path_obj))
             .launch()
             .await?;
 

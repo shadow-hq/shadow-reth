@@ -1,6 +1,8 @@
 //! ShadowRPC is a reth RPC extension which allows for reading
 //! shadow data written to SQLite by [`reth-shadow-exex`]
 
+#![cfg_attr(not(test), warn(unused_crate_dependencies))]
+
 /// Contains logic for custom RPC API methods.
 pub(crate) mod apis;
 
@@ -9,11 +11,9 @@ use std::path::PathBuf;
 use apis::{GetLogsParameters, GetLogsResult};
 use eyre::{eyre, Result};
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
-use reth::{
-    builder::rpc::RpcContext,
-    providers::{BlockNumReader, BlockReaderIdExt},
-};
 use reth_node_api::FullNodeComponents;
+use reth_node_builder::rpc::RpcContext;
+use reth_provider::{BlockNumReader, BlockReaderIdExt};
 use shadow_reth_common::ShadowSqliteDb;
 
 #[rpc(server, namespace = "shadow")]
@@ -31,10 +31,7 @@ pub struct ShadowRpc<P> {
     sqlite_manager: ShadowSqliteDb,
 }
 
-impl<Provider> ShadowRpc<Provider>
-where
-    Provider: BlockNumReader + BlockReaderIdExt + Clone + Unpin,
-{
+impl<Provider> ShadowRpc<Provider> {
     /// Instatiate a Shadow RPC API, building a connection pool to the SQLite database
     /// and initializing tables.
     pub async fn new(provider: Provider, db_path: &str) -> Result<ShadowRpc<Provider>> {
@@ -43,11 +40,11 @@ where
 
     /// Initializes ShadowRpc, to be called from the `.extend_rpc_modules` reth hook
     /// on node startup.
-    pub fn init<Node: FullNodeComponents>(
-        ctx: RpcContext<'_, Node>,
-        db_path_obj: PathBuf,
-        _: Provider, // passed only for type inference
-    ) -> Result<()> {
+    pub fn init<Node>(ctx: RpcContext<'_, Node>, db_path_obj: PathBuf) -> Result<()>
+    where
+        Node: FullNodeComponents<Provider = Provider>,
+        Node::Provider: BlockNumReader + BlockReaderIdExt + Clone + Unpin + 'static,
+    {
         // Clone the provider so we can move it into the RPC builder thread
         let provider = ctx.provider().clone();
 
@@ -56,13 +53,10 @@ where
         // We have to do it this way to avoid spawning a runtime within a runtime.
         let shadow_rpc = std::thread::spawn(move || {
             let rt = tokio::runtime::Runtime::new().expect("failed to spawn blocking runtime");
-            rt.block_on(async {
-                ShadowRpc::new(
-                    provider,
-                    db_path_obj.to_str().ok_or(eyre!("failed to parse DB path"))?,
-                )
-                .await
-            })
+            rt.block_on(ShadowRpc::new(
+                provider,
+                db_path_obj.to_str().ok_or_else(|| eyre!("failed to parse DB path"))?,
+            ))
         })
         .join()
         .map_err(|_| eyre!("failed to join ShadowRpc thread"))??;
@@ -78,8 +72,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use reth::providers::test_utils::MockEthProvider;
-    use reth_primitives::{Block, Header};
+    use reth_primitives::{hex, Block, Header};
+    use reth_provider::test_utils::MockEthProvider;
     use shadow_reth_common::ShadowLog;
 
     use crate::{
@@ -151,7 +145,7 @@ mod tests {
 
         rpc.sqlite_manager.bulk_insert_into_shadow_log_table(logs).await.unwrap();
 
-        let params = vec![GetLogsParameters {
+        let params = GetLogsParameters {
             address: Some(AddressRepresentation::ArrayOfStrings(vec![
                 "0x0fbc0a9be1e87391ed2c7d2bb275bec02f53241f".to_string(),
                 "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2".to_string(),
@@ -161,9 +155,9 @@ mod tests {
             from_block: Some("0x11feef0".to_string()),
             to_block: Some("0x11feef1".to_string()),
             topics: None,
-        }];
+        };
 
-        let resp = rpc.get_logs(params[0].clone()).await.unwrap();
+        let resp = rpc.get_logs(params).await.unwrap();
 
         let expected = vec![
             GetLogsResult {

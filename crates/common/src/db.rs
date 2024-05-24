@@ -1,6 +1,6 @@
-use eyre::{OptionExt, Result};
+use eyre::Result;
+use reth_primitives::B256;
 use reth_tracing::tracing::debug;
-use revm_primitives::B256;
 use std::str::FromStr;
 
 use sqlx::{
@@ -8,7 +8,7 @@ use sqlx::{
     Pool, Sqlite,
 };
 
-use crate::{ShadowLog, ToLowerHex};
+use crate::ShadowLog;
 
 /// Wrapper type around a SQLite connection pool.
 #[derive(Clone, Debug)]
@@ -94,12 +94,11 @@ impl ShadowSqliteDb {
     pub async fn handle_block_reorg(&self, block_hash: B256) -> Result<()> {
         let start_time = std::time::Instant::now();
         let _ = sqlx::query(&format!(
-            "UPDATE shadow_logs SET removed = true WHERE block_hash = X'{}'",
-            block_hash.to_lower_hex().strip_prefix("0x").ok_or_eyre("invalid block_hash")?
+            "UPDATE shadow_logs SET removed = true WHERE block_hash = X'{block_hash:x}'",
         ))
         .execute(&self.pool)
         .await?;
-        debug!("Invalidated block '{}' in {:?}", block_hash.to_lower_hex(), start_time.elapsed());
+        debug!("Invalidated block '{block_hash}' in {:?}", start_time.elapsed());
         Ok(())
     }
 }

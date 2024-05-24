@@ -8,10 +8,10 @@ use reth_provider::StateProvider;
 use reth_tracing::tracing::{debug, error};
 use revm::{
     db::{states::bundle_state::BundleRetention, State},
+    primitives::{
+        CfgEnvWithHandlerCfg, EVMError, ExecutionResult, HashMap, ResultAndState, B256, U256,
+    },
     DatabaseCommit, Evm, StateBuilder,
-};
-use revm_primitives::{
-    CfgEnvWithHandlerCfg, EVMError, ExecutionResult, HashMap, ResultAndState, B256, U256,
 };
 use shadow_reth_common::{ShadowLog, ToLowerHex};
 use std::sync::Arc;

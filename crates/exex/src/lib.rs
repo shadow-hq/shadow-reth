@@ -1,5 +1,8 @@
 //! ShadowExEx is a reth [Execution Extension](https://www.paradigm.xyz/2024/05/reth-exex) which allows for
 //! overriding bytecode at specific addresses with custom "shadow" bytecode.
+
+#![cfg_attr(not(test), warn(unused_crate_dependencies))]
+
 mod contracts;
 mod db;
 mod execution;
@@ -10,10 +13,10 @@ use contracts::ShadowContracts;
 use execution::ShadowExecutor;
 use eyre::{eyre, OptionExt, Result};
 use futures::Future;
-use reth::providers::{DatabaseProviderFactory, HistoricalStateProviderRef};
 use reth_evm_ethereum::EthEvmConfig;
 use reth_exex::{ExExContext, ExExEvent, ExExNotification};
 use reth_node_api::FullNodeComponents;
+use reth_provider::{DatabaseProviderFactory, HistoricalStateProviderRef};
 use reth_tracing::tracing::{debug, info};
 use serde_json::Value;
 use shadow_reth_common::ShadowSqliteDb;

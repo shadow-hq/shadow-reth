@@ -1,9 +1,8 @@
 use std::str::FromStr;
 
 use eyre::{eyre, Result};
-use revm_primitives::{Address, Bytecode, Bytes, HashMap, B256};
+use reth_primitives::revm_primitives::{Address, Bytecode, Bytes, HashMap, B256};
 use serde_json::Value;
-use shadow_reth_common::ToLowerHex;
 
 /// A map of addresses to shadow bytecode, which will be used when replaying
 /// committed transactions.
@@ -28,15 +27,11 @@ impl TryFrom<Value> for ShadowContracts {
                 let bytecode = Bytecode::new_raw(
                     Bytes::from_str(bytecode.as_str().ok_or_else(|| {
                         eyre!(
-                            "shadow configuration invalid at {}: bytecode must be a string",
-                            address.to_lower_hex()
+                            "shadow configuration invalid at {address}: bytecode must be a string",
                         )
                     })?)
                     .map_err(|e| {
-                        eyre!(
-                            "shadow configuration invalid at {}: invalid bytecode: {e}",
-                            address.to_lower_hex()
-                        )
+                        eyre!("shadow configuration invalid at {address}: invalid bytecode: {e}",)
                     })?,
                 );
                 Ok((address, bytecode))

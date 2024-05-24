@@ -352,7 +352,6 @@ version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2c6da95adcf4760bb4b108fefa51d50096c5e5fdd29ee72fed3e86ee414f2e34"
 dependencies = [
- "alloy-json-abi",
  "alloy-sol-macro-input",
  "const-hex",
  "heck 0.4.1",
@@ -371,13 +370,11 @@ version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32c8da04c1343871fb6ce5a489218f9c85323c8340a36e9106b5fc98d4dd59d5"
 dependencies = [
- "alloy-json-abi",
  "const-hex",
  "dunce",
  "heck 0.5.0",
  "proc-macro2",
  "quote",
- "serde_json",
  "syn 2.0.63",
  "syn-solidity",
 ]
@@ -397,7 +394,6 @@ version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40a64d2d2395c1ac636b62419a7b17ec39031d6b2367e66e9acbf566e6055e9c"
 dependencies = [
- "alloy-json-abi",
  "alloy-primitives",
  "alloy-sol-macro",
  "const-hex",
@@ -7309,18 +7305,10 @@ name = "shadow-reth"
 version = "0.1.0"
 dependencies = [
  "eyre",
- "futures",
  "reth",
- "reth-exex",
- "reth-node-api",
- "reth-node-core",
  "reth-node-ethereum",
- "reth-primitives",
- "reth-tracing",
  "shadow-reth-exex",
  "shadow-reth-rpc",
- "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -7328,53 +7316,27 @@ name = "shadow-reth-common"
 version = "0.1.0"
 dependencies = [
  "eyre",
- "futures",
- "reth",
- "reth-exex",
- "reth-node-api",
- "reth-node-core",
- "reth-node-ethereum",
  "reth-primitives",
  "reth-tracing",
- "revm",
- "revm-inspectors",
- "revm-primitives",
- "serde",
- "serde_json",
  "sqlx",
- "tokio",
- "tracing",
 ]
 
 [[package]]
 name = "shadow-reth-exex"
 version = "0.1.0"
 dependencies = [
- "alloy-consensus",
- "alloy-rlp",
- "alloy-sol-types",
  "eyre",
  "futures",
- "reth",
- "reth-evm",
  "reth-evm-ethereum",
  "reth-exex",
- "reth-interfaces",
  "reth-node-api",
- "reth-node-core",
- "reth-node-ethereum",
  "reth-primitives",
  "reth-provider",
- "reth-revm",
  "reth-tracing",
  "revm",
- "revm-inspectors",
- "revm-primitives",
- "serde",
  "serde_json",
  "shadow-reth-common",
  "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -7382,22 +7344,15 @@ name = "shadow-reth-rpc"
 version = "0.1.0"
 dependencies = [
  "eyre",
- "futures",
- "hex",
  "jsonrpsee",
- "reth",
- "reth-exex",
  "reth-node-api",
- "reth-node-core",
- "reth-node-ethereum",
+ "reth-node-builder",
  "reth-primitives",
- "reth-tracing",
+ "reth-provider",
  "serde",
- "serde_json",
  "shadow-reth-common",
  "sqlx",
  "tokio",
- "tracing",
 ]
 
 [[package]]
