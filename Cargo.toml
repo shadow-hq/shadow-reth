@@ -1,10 +1,5 @@
 [workspace]
-members = [
-    "crates/exex",
-    "crates/rpc",
-    "crates/common",
-    "bin/shadow-reth",
-]
+members = ["bin/shadow-reth", "crates/common", "crates/exex", "crates/rpc"]
 default-members = ["bin/shadow-reth"]
 
 # Explicitly set the resolver to version 2, which is the default for packages with edition >= 2021
@@ -115,6 +110,7 @@ shadow-reth-common = { path = "crates/common" }
 reth = { git = "https://github.com/paradigmxyz/reth.git", rev = "aefcfff25fd3ec534b34337c9838c44ccdbab9b5" }
 reth-exex = { git = "https://github.com/paradigmxyz/reth.git", rev = "aefcfff25fd3ec534b34337c9838c44ccdbab9b5" }
 reth-node-api = { git = "https://github.com/paradigmxyz/reth.git", rev = "aefcfff25fd3ec534b34337c9838c44ccdbab9b5" }
+reth-node-builder = { git = "https://github.com/paradigmxyz/reth.git", rev = "aefcfff25fd3ec534b34337c9838c44ccdbab9b5" }
 reth-node-core = { git = "https://github.com/paradigmxyz/reth.git", rev = "aefcfff25fd3ec534b34337c9838c44ccdbab9b5" }
 reth-node-ethereum = { git = "https://github.com/paradigmxyz/reth.git", rev = "aefcfff25fd3ec534b34337c9838c44ccdbab9b5" }
 reth-primitives = { git = "https://github.com/paradigmxyz/reth.git", rev = "aefcfff25fd3ec534b34337c9838c44ccdbab9b5" }
@@ -148,4 +144,3 @@ jsonrpsee = "0.22"
 jsonrpsee-core = "0.22"
 jsonrpsee-types = "0.22"
 sqlx = { version = "0.7.4", features = ["sqlite", "runtime-tokio"] }
-hex = { version = "0.4.3" }

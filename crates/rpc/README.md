@@ -49,9 +49,7 @@ pub trait ShadowRpcApi {
 2. Add a new submodule to the `apis` module that contains the core logic for the newly added RPC method.
 
 ```rust
-impl ShadowRpcApiServer for ShadowRpc
-{
-    #[doc = "Returns an array of all shadow logs matching filter with given id."]
+impl ShadowRpcApiServer for ShadowRpc {
     fn get_filter_logs(&self, params: ...) -> RpcResult<...> { ... }
 }
 ```

@@ -1,11 +1,13 @@
+//! Contains logic for a shadow RPC equivalent of `eth_getLogs`.
+
 use std::{num::ParseIntError, str::FromStr};
 
 use jsonrpsee::{
     core::{async_trait, RpcResult},
     types::{error::INTERNAL_ERROR_CODE, ErrorObject},
 };
-use reth::providers::{BlockNumReader, BlockReaderIdExt};
-use reth_primitives::{revm_primitives::FixedBytes, Address, BlockNumberOrTag};
+use reth_primitives::{hex, Address, BlockNumberOrTag, B256};
+use reth_provider::{BlockNumReader, BlockReaderIdExt};
 use serde::{Deserialize, Serialize};
 use shadow_reth_common::ShadowLog;
 
@@ -152,7 +154,6 @@ impl<P> ShadowRpcApiServer for ShadowRpc<P>
 where
     P: BlockNumReader + BlockReaderIdExt + Clone + Unpin + 'static,
 {
-    #[doc = "Returns shadow logs."]
     // todo: move to common sqlite module
     async fn get_logs(&self, params: GetLogsParameters) -> RpcResult<Vec<GetLogsResult>> {
         let base_stmt = "
@@ -351,7 +352,7 @@ impl ValidatedQueryParams {
             }
             (Some(block_hash), None, None) => {
                 let num = match provider.block_by_hash(
-                    FixedBytes::from_str(&block_hash)
+                    B256::from_str(&block_hash)
                         .map_err(|e| ErrorObject::owned::<()>(-1, e.to_string(), None))?,
                 ) {
                     Ok(Some(b)) => b.number,
@@ -444,8 +445,8 @@ impl std::fmt::Display for ValidatedQueryParams {
 
 #[cfg(test)]
 mod tests {
-    use reth::providers::test_utils::MockEthProvider;
     use reth_primitives::{Block, Header};
+    use reth_provider::test_utils::MockEthProvider;
 
     use super::ValidatedQueryParams;
 
