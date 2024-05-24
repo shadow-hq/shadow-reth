@@ -37,7 +37,7 @@ impl ShadowSqliteDb {
     pub async fn bulk_insert_into_shadow_log_table(
         &self,
         logs: Vec<ShadowLog>,
-    ) -> Result<(), sqlx::Error> {
+    ) -> Result<(), sqlx::Error> {///ERRRRRRRRROROROORROORROROROROOROROR
         let start_time = std::time::Instant::now();
         let mut query = "INSERT INTO shadow_logs (
             block_number,
