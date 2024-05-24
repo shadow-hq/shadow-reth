@@ -188,7 +188,7 @@ As a result, `shadow-reth` allows you to run a trustless, fully open-source vers
 ## Limitations
 
 - <b>Gas limits:</b> `shadow-reth` does not override gas limits when re-executing a block with `ShadowExecutor` for data consistency reasons. Transactions may fail if they run out of gas during shadow re-execution, and no shadow events will be emitted for that transaction.
-- <b>Backfilling:</b> `shadow-reth` does not backfill shadow events. If you start running `shadow-reth` on a synced Reth node, `shadow-ret` will only generate shadow events for blocks that have been processed since `shadow-reth` was started. If you want historical shadow events, you’ll need to re-sync your Reth node from genesis. We’re working closely with the Reth team to improve this.
+- <b>Backfilling:</b> `shadow-reth` does not backfill shadow events. If you start running `shadow-reth` on a synced Reth node, `shadow-reth` will only generate shadow events for blocks that have been processed since `shadow-reth` was started. If you want historical shadow events, you’ll need to re-sync your Reth node from genesis. We’re working closely with the Reth team to improve this.
 - <b>Decoding:</b> `shadow-reth` is designed to be analogous to a regular node, which doesn’t include event decoding. If you want to decode shadow events, we recommend polling the `shadow_getLogs` endpoint in a separate process.
 - <b>Websockets:</b> Shadow events will not be published over `eth_subscribe` websocket subscriptions.
 
