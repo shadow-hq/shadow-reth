@@ -6,6 +6,7 @@ pub trait ToLowerHex {
     ///
     /// ```
     /// use reth_primitives::Address;
+    /// use shadow_reth_common::ToLowerHex;
     ///
     /// let value = Address::ZERO;
     /// assert_eq!(value.to_lower_hex(), "0x0000000000000000000000000000000000000000");

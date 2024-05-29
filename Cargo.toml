@@ -130,3 +130,9 @@ serde_json = "1.0.117"
 # RPC
 jsonrpsee = "0.22.5"
 sqlx = { version = "0.7.4", features = ["sqlite", "runtime-tokio"] }
+
+[patch.crates-io]
+revm = { git = "https://github.com/bluealloy/revm", rev = "a28a543" }
+revm-interpreter = { git = "https://github.com/bluealloy/revm", rev = "a28a543" }
+revm-precompile = { git = "https://github.com/bluealloy/revm", rev = "a28a543" }
+revm-primitives = { git = "https://github.com/bluealloy/revm", rev = "a28a543" }
