@@ -107,40 +107,32 @@ shadow-reth-rpc = { path = "crates/rpc" }
 shadow-reth-common = { path = "crates/common" }
 
 # Reth
-reth = { git = "https://github.com/paradigmxyz/reth.git", rev = "aefcfff25fd3ec534b34337c9838c44ccdbab9b5" }
-reth-exex = { git = "https://github.com/paradigmxyz/reth.git", rev = "aefcfff25fd3ec534b34337c9838c44ccdbab9b5" }
-reth-node-api = { git = "https://github.com/paradigmxyz/reth.git", rev = "aefcfff25fd3ec534b34337c9838c44ccdbab9b5" }
-reth-node-builder = { git = "https://github.com/paradigmxyz/reth.git", rev = "aefcfff25fd3ec534b34337c9838c44ccdbab9b5" }
-reth-node-core = { git = "https://github.com/paradigmxyz/reth.git", rev = "aefcfff25fd3ec534b34337c9838c44ccdbab9b5" }
-reth-node-ethereum = { git = "https://github.com/paradigmxyz/reth.git", rev = "aefcfff25fd3ec534b34337c9838c44ccdbab9b5" }
-reth-primitives = { git = "https://github.com/paradigmxyz/reth.git", rev = "aefcfff25fd3ec534b34337c9838c44ccdbab9b5" }
-reth-tracing = { git = "https://github.com/paradigmxyz/reth.git", rev = "aefcfff25fd3ec534b34337c9838c44ccdbab9b5" }
-reth-evm = { git = "https://github.com/paradigmxyz/reth.git", rev = "aefcfff25fd3ec534b34337c9838c44ccdbab9b5" }
-reth-evm-ethereum = { git = "https://github.com/paradigmxyz/reth.git", rev = "aefcfff25fd3ec534b34337c9838c44ccdbab9b5" }
-reth-provider = { git = "https://github.com/paradigmxyz/reth.git", rev = "aefcfff25fd3ec534b34337c9838c44ccdbab9b5" }
-reth-interfaces = { git = "https://github.com/paradigmxyz/reth.git", rev = "aefcfff25fd3ec534b34337c9838c44ccdbab9b5" }
-reth-revm = { git = "https://github.com/paradigmxyz/reth.git", rev = "aefcfff25fd3ec534b34337c9838c44ccdbab9b5" }
-
-# Alloy
-alloy-consensus = { git = "https://github.com/alloy-rs/alloy", rev = "dd7a999" }
-alloy-sol-types = "0.7.2"
-alloy-rlp = "0.3.4"
-
-# Revm
-revm = { version = "9.0.0", features = ["std", "secp256k1"], default-features = false }
-revm-primitives = { version = "4.0.0", features = ["std"], default-features = false }
-revm-inspectors = { git = "https://github.com/paradigmxyz/evm-inspectors", rev = "21a2db5" }
+reth = { git = "https://github.com/paradigmxyz/reth.git", rev = "d777d5f" }
+reth-exex = { git = "https://github.com/paradigmxyz/reth.git", rev = "d777d5f" }
+reth-node-api = { git = "https://github.com/paradigmxyz/reth.git", rev = "d777d5f" }
+reth-node-builder = { git = "https://github.com/paradigmxyz/reth.git", rev = "d777d5f" }
+reth-node-ethereum = { git = "https://github.com/paradigmxyz/reth.git", rev = "d777d5f" }
+reth-primitives = { git = "https://github.com/paradigmxyz/reth.git", rev = "d777d5f" }
+reth-tracing = { git = "https://github.com/paradigmxyz/reth.git", rev = "d777d5f" }
+reth-evm = { git = "https://github.com/paradigmxyz/reth.git", rev = "d777d5f" }
+reth-evm-ethereum = { git = "https://github.com/paradigmxyz/reth.git", rev = "d777d5f" }
+reth-provider = { git = "https://github.com/paradigmxyz/reth.git", rev = "d777d5f" }
+reth-revm = { git = "https://github.com/paradigmxyz/reth.git", rev = "d777d5f" }
 
 # Crates.io
 eyre = "0.6.12"
-tokio = { version = "1.29.1", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.37.0", features = ["macros", "rt-multi-thread"] }
 futures = "0.3.30"
 tracing = "0.1.40"
-serde = "1.0.201"
+serde = "1.0.203"
 serde_json = "1.0.117"
 
 # RPC
-jsonrpsee = "0.22"
-jsonrpsee-core = "0.22"
-jsonrpsee-types = "0.22"
+jsonrpsee = "0.22.5"
 sqlx = { version = "0.7.4", features = ["sqlite", "runtime-tokio"] }
+
+[patch.crates-io]
+revm = { git = "https://github.com/bluealloy/revm", rev = "a28a543" }
+revm-interpreter = { git = "https://github.com/bluealloy/revm", rev = "a28a543" }
+revm-precompile = { git = "https://github.com/bluealloy/revm", rev = "a28a543" }
+revm-primitives = { git = "https://github.com/bluealloy/revm", rev = "a28a543" }
