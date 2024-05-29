@@ -1,11 +1,12 @@
+use std::ops::{Deref, DerefMut};
+
 use reth_primitives::{Address, B256, KECCAK_EMPTY, U256};
 use reth_provider::{ProviderError, StateProvider};
-use revm::{
+use reth_revm::{
     db::DatabaseRef,
     primitives::{AccountInfo, Bytecode},
     Database,
 };
-use std::ops::{Deref, DerefMut};
 
 use crate::contracts::ShadowContracts;
 

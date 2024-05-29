@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use eyre::Result;
 use reth_evm_ethereum::EthEvmConfig;
 use reth_node_api::{ConfigureEvm, ConfigureEvmEnv};
@@ -14,7 +16,6 @@ use revm::{
     DatabaseCommit, Evm, StateBuilder,
 };
 use shadow_reth_common::{ShadowLog, ToLowerHex};
-use std::sync::Arc;
 
 use crate::db::ShadowDatabase;
 

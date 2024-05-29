@@ -1,8 +1,8 @@
+use std::str::FromStr;
+
 use eyre::Result;
 use reth_primitives::B256;
 use reth_tracing::tracing::debug;
-use std::str::FromStr;
-
 use sqlx::{
     sqlite::{SqliteConnectOptions, SqlitePoolOptions},
     Pool, Sqlite,
