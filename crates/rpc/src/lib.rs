@@ -8,7 +8,7 @@ pub(crate) mod apis;
 
 use std::path::PathBuf;
 
-use apis::{GetLogsParameters, GetLogsResult};
+use apis::{GetLogsParameters, GetLogsResult, SubscribeParameters};
 use eyre::{eyre, Result};
 use jsonrpsee::{
     core::{RpcResult, SubscriptionResult},
@@ -28,7 +28,7 @@ pub trait ShadowRpcApi {
 
     /// Create a shadow logs subscription.
     #[subscription(name = "subscribe" => "subscription", unsubscribe = "unsubscribe", item = reth_rpc_types::PubSub::SubscriptionResult)]
-    async fn subscribe(&self, params: GetLogsParameters) -> SubscriptionResult;
+    async fn subscribe(&self, params: SubscribeParameters) -> SubscriptionResult;
 }
 
 /// Wrapper around an RPC provider and a database connection pool.
@@ -37,6 +37,7 @@ pub struct ShadowRpc<P> {
     provider: P,
     /// Database manager.
     sqlite_manager: ShadowSqliteDb,
+    /// Receives block hashes as they are indexed by the exex.
     indexed_block_hash_receiver: Receiver<String>,
 }
 

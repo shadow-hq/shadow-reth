@@ -3,17 +3,15 @@
 use std::{num::ParseIntError, str::FromStr};
 
 use jsonrpsee::{
-    core::{async_trait, RpcResult, SubscriptionResult},
+    core::RpcResult,
     types::{error::INTERNAL_ERROR_CODE, ErrorObject},
-    PendingSubscriptionSink, SubscriptionSink,
 };
 use reth_primitives::{hex, Address, BlockNumberOrTag, B256};
 use reth_provider::{BlockNumReader, BlockReaderIdExt};
 use serde::{Deserialize, Serialize};
-use shadow_reth_common::{ShadowLog, ShadowSqliteDb};
-use tokio::sync::broadcast::Receiver;
+use shadow_reth_common::ShadowLog;
 
-use crate::{ShadowRpc, ShadowRpcApiServer};
+use crate::ShadowRpc;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(untagged)]
@@ -151,6 +149,37 @@ impl TryFrom<RawGetLogsRow> for ShadowLog {
     }
 }
 
+pub(crate) async fn get_logs<P>(
+    rpc: &ShadowRpc<P>,
+    params: GetLogsParameters,
+) -> RpcResult<Vec<GetLogsResult>>
+where
+    P: BlockNumReader + BlockReaderIdExt + Clone + Unpin + 'static,
+{
+    let validated_param_objs = ValidatedQueryParams::new(&rpc.provider, params)?;
+
+    let mut results: Vec<GetLogsResult> = vec![];
+    for query_params in [validated_param_objs] {
+        let sql = format!("{BASE_STMT} {query_params}");
+        let raw_rows: Vec<RawGetLogsRow> = sqlx::query_as(&sql)
+            .fetch_all(&rpc.sqlite_manager.pool)
+            .await
+            .map_err(|e| ErrorObject::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None))?;
+        let intermediate_results = raw_rows
+            .into_iter()
+            .map(ShadowLog::try_from)
+            .collect::<Result<Vec<ShadowLog>, ParseIntError>>()
+            .map_err(|e| ErrorObject::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None))?;
+        let mut result = intermediate_results
+            .into_iter()
+            .map(GetLogsResult::from)
+            .collect::<Vec<GetLogsResult>>();
+        results.append(&mut result);
+    }
+
+    Ok(results)
+}
+
 // todo: move to common sqlite module
 const BASE_STMT: &str = "
     SELECT
@@ -170,77 +199,6 @@ const BASE_STMT: &str = "
         transaction_log_index
     FROM shadow_logs
 ";
-
-#[async_trait]
-impl<P> ShadowRpcApiServer for ShadowRpc<P>
-where
-    P: BlockNumReader + BlockReaderIdExt + Clone + Unpin + 'static,
-{
-    async fn get_logs(&self, params: GetLogsParameters) -> RpcResult<Vec<GetLogsResult>> {
-        let validated_param_objs = ValidatedQueryParams::new(&self.provider, params)?;
-
-        let mut results: Vec<GetLogsResult> = vec![];
-        for query_params in [validated_param_objs] {
-            let sql = format!("{BASE_STMT} {query_params}");
-            let raw_rows: Vec<RawGetLogsRow> = sqlx::query_as(&sql)
-                .fetch_all(&self.sqlite_manager.pool)
-                .await
-                .map_err(|e| ErrorObject::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None))?;
-            let intermediate_results = raw_rows
-                .into_iter()
-                .map(ShadowLog::try_from)
-                .collect::<Result<Vec<ShadowLog>, ParseIntError>>()
-                .map_err(|e| ErrorObject::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None))?;
-            let mut result = intermediate_results
-                .into_iter()
-                .map(GetLogsResult::from)
-                .collect::<Vec<GetLogsResult>>();
-            results.append(&mut result);
-        }
-
-        Ok(results)
-    }
-
-    async fn subscribe(
-        &self,
-        pending: PendingSubscriptionSink,
-        params: GetLogsParameters,
-    ) -> SubscriptionResult {
-        let sink = pending.accept().await?;
-        tokio::spawn({
-            let provider = self.provider.clone();
-            let sqlite_manager = self.sqlite_manager.clone();
-            let indexed_block_hash_receiver = self.indexed_block_hash_receiver.resubscribe();
-            async move {
-                let _ = handle_accepted(
-                    provider,
-                    sqlite_manager,
-                    indexed_block_hash_receiver,
-                    sink,
-                    params,
-                )
-                .await;
-            }
-        });
-
-        Ok(())
-    }
-}
-
-async fn handle_accepted(
-    provider: impl BlockNumReader + BlockReaderIdExt + Clone + Unpin + 'static,
-    sqlite_manager: ShadowSqliteDb,
-    indexed_block_hash_receiver: Receiver<String>,
-    accepted_sink: SubscriptionSink,
-    params: GetLogsParameters,
-) -> Result<(), ErrorObject<'static>> {
-    let validated_param_objs = ValidatedQueryParams::new(&provider, params)?;
-
-    // todo: add new query params obj, reuse filter serialization and validation logic
-    // todo: query db for logs matching params and block hash
-
-    todo!();
-}
 
 impl ValidatedQueryParams {
     fn new(
