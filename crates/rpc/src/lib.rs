@@ -10,17 +10,25 @@ use std::path::PathBuf;
 
 use apis::{GetLogsParameters, GetLogsResult};
 use eyre::{eyre, Result};
-use jsonrpsee::{core::RpcResult, proc_macros::rpc};
+use jsonrpsee::{
+    core::{RpcResult, SubscriptionResult},
+    proc_macros::rpc,
+};
 use reth_node_api::FullNodeComponents;
 use reth_node_builder::rpc::RpcContext;
 use reth_provider::{BlockNumReader, BlockReaderIdExt};
 use shadow_reth_common::ShadowSqliteDb;
+use tokio::sync::broadcast::Receiver;
 
 #[rpc(server, namespace = "shadow")]
 pub trait ShadowRpcApi {
     /// Returns shadow logs.
     #[method(name = "getLogs")]
     async fn get_logs(&self, params: GetLogsParameters) -> RpcResult<Vec<GetLogsResult>>;
+
+    /// Create a shadow logs subscription.
+    #[subscription(name = "subscribe" => "subscription", unsubscribe = "unsubscribe", item = reth_rpc_types::PubSub::SubscriptionResult)]
+    async fn subscribe(&self, params: GetLogsParameters) -> SubscriptionResult;
 }
 
 /// Wrapper around an RPC provider and a database connection pool.
@@ -29,18 +37,31 @@ pub struct ShadowRpc<P> {
     provider: P,
     /// Database manager.
     sqlite_manager: ShadowSqliteDb,
+    indexed_block_hash_receiver: Receiver<String>,
 }
 
 impl<Provider> ShadowRpc<Provider> {
     /// Instatiate a Shadow RPC API, building a connection pool to the SQLite database
     /// and initializing tables.
-    pub async fn new(provider: Provider, db_path: &str) -> Result<ShadowRpc<Provider>> {
-        Ok(Self { provider, sqlite_manager: ShadowSqliteDb::new(db_path).await? })
+    pub async fn new(
+        provider: Provider,
+        db_path: &str,
+        indexed_block_hash_receiver: Receiver<String>,
+    ) -> Result<ShadowRpc<Provider>> {
+        Ok(Self {
+            provider,
+            sqlite_manager: ShadowSqliteDb::new(db_path).await?,
+            indexed_block_hash_receiver,
+        })
     }
 
     /// Initializes ShadowRpc, to be called from the `.extend_rpc_modules` reth hook
     /// on node startup.
-    pub fn init<Node>(ctx: RpcContext<'_, Node>, db_path_obj: PathBuf) -> Result<()>
+    pub fn init<Node>(
+        ctx: RpcContext<'_, Node>,
+        db_path_obj: PathBuf,
+        indexed_block_hash_receiver: Receiver<String>,
+    ) -> Result<()>
     where
         Node: FullNodeComponents<Provider = Provider>,
         Node::Provider: BlockNumReader + BlockReaderIdExt + Clone + Unpin + 'static,
@@ -56,6 +77,7 @@ impl<Provider> ShadowRpc<Provider> {
             rt.block_on(ShadowRpc::new(
                 provider,
                 db_path_obj.to_str().ok_or_else(|| eyre!("failed to parse DB path"))?,
+                indexed_block_hash_receiver,
             ))
         })
         .join()

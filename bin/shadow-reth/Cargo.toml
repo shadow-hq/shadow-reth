@@ -24,3 +24,4 @@ reth-node-ethereum.workspace = true
 
 # Crates
 eyre.workspace = true
+tokio.workspace = true

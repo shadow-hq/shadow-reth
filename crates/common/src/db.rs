@@ -91,10 +91,10 @@ impl ShadowSqliteDb {
     /// Marks all logs with the given `block_hash` as removed.
     ///
     /// This is used to invalid all logs in a block when a reorg happens.
-    pub async fn handle_block_reorg(&self, block_hash: B256) -> Result<()> {
+    pub async fn handle_block_reorg(&self, block_hash: String) -> Result<()> {
         let start_time = std::time::Instant::now();
         let _ = sqlx::query(&format!(
-            "UPDATE shadow_logs SET removed = true WHERE block_hash = X'{block_hash:x}'",
+            "UPDATE shadow_logs SET removed = true WHERE block_hash = X'{block_hash}'",
         ))
         .execute(&self.pool)
         .await?;

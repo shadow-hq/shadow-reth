@@ -17,13 +17,17 @@ fn main() -> Result<()> {
     }
 
     reth::cli::Cli::parse_args().run(|builder, _| async move {
-        let db_path_obj = builder.data_dir().db().join("shadow.db");
+        let shadow_db_path = builder.data_dir().db().join("shadow.db");
+        let (indexed_block_hash_sender, indexed_block_hash_receiver) =
+            tokio::sync::broadcast::channel(1024);
 
         // Start reth w/ the shadow exex.
         let handle = builder
             .node(EthereumNode::default())
-            .install_exex("ShadowExEx", ShadowExEx::init)
-            .extend_rpc_modules(move |ctx| ShadowRpc::init(ctx, db_path_obj))
+            .install_exex("ShadowExEx", move |ctx| ShadowExEx::init(ctx, indexed_block_hash_sender))
+            .extend_rpc_modules(move |ctx| {
+                ShadowRpc::init(ctx, shadow_db_path, indexed_block_hash_receiver)
+            })
             .launch()
             .await?;
 

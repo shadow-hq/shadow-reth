@@ -7448,6 +7448,7 @@ dependencies = [
  "reth-node-ethereum",
  "shadow-reth-exex",
  "shadow-reth-rpc",
+ "tokio",
 ]
 
 [[package]]
