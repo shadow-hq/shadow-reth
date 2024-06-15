@@ -19,7 +19,7 @@ fn main() -> Result<()> {
     reth::cli::Cli::parse_args().run(|builder, _| async move {
         let shadow_db_path = builder.data_dir().db().join("shadow.db");
         let (indexed_block_hash_sender, indexed_block_hash_receiver) =
-            tokio::sync::broadcast::channel(1024);
+            tokio::sync::broadcast::channel(4096);
 
         // Start reth w/ the shadow exex.
         let handle = builder

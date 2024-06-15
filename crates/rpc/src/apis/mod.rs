@@ -18,7 +18,7 @@ impl<P> ShadowRpcApiServer for ShadowRpc<P>
 where
     P: BlockNumReader + BlockReaderIdExt + Clone + Unpin + 'static,
 {
-    async fn get_logs(&self, params: GetLogsParameters) -> RpcResult<Vec<GetLogsResult>> {
+    async fn get_logs(&self, params: GetLogsParameters) -> RpcResult<Vec<RpcLog>> {
         get_logs(self, params).await
     }
 

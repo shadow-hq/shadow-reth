@@ -7489,6 +7489,7 @@ dependencies = [
  "reth-node-builder",
  "reth-primitives",
  "reth-provider",
+ "reth-tracing",
  "serde",
  "shadow-reth-common",
  "sqlx",
