@@ -1,8 +1,10 @@
 mod get_logs;
 mod subscribe;
+mod types;
 
 pub(crate) use get_logs::*;
 pub(crate) use subscribe::*;
+pub(crate) use types::*;
 
 use crate::{ShadowRpc, ShadowRpcApiServer};
 use jsonrpsee::{

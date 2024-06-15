@@ -5,6 +5,7 @@
 
 /// Contains logic for custom RPC API methods.
 pub(crate) mod apis;
+pub(crate) mod shadow_logs_query;
 
 use std::path::PathBuf;
 

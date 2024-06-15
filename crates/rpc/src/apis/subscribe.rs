@@ -1,3 +1,5 @@
+//! Contains logic for a shadow RPC equivalent of `eth_subscribe` of `type` `logs`.
+
 use super::AddressRepresentation;
 use crate::ShadowRpc;
 use jsonrpsee::{
@@ -11,7 +13,7 @@ use tokio::sync::broadcast::Receiver;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SubscribeParameters {
     pub address: Option<AddressRepresentation>,
-    pub topics: Option<Vec<Option<String>>>,
+    pub topics: Option<Vec<String>>,
 }
 
 pub(crate) async fn subscribe<P>(
