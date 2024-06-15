@@ -319,13 +319,7 @@ impl ValidatedQueryParams {
                 };
                 ValidatedBlockIdParam::BlockRange(num, num)
             }
-            (Some(block_hash), None, None) => {
-                if block_hash.starts_with("0x") {
-                    ValidatedBlockIdParam::BlockHash(block_hash[2..].to_string())
-                } else {
-                    ValidatedBlockIdParam::BlockHash(block_hash)
-                }
-            }
+            (Some(block_hash), None, None) => ValidatedBlockIdParam::BlockHash(block_hash),
             (Some(_), Some(_), _) | (Some(_), _, Some(_)) => return Err(ErrorObject::owned::<()>(
                 -32001,
                 "Parameters fromBlock and toBlock cannot be used if blockHash parameter is present",
@@ -383,7 +377,7 @@ impl std::fmt::Display for ValidatedQueryParams {
 
         let block_range_clause = match &self.block_id {
             ValidatedBlockIdParam::BlockHash(block_hash) => {
-                Some(format!("block_hash = X'{}'", &block_hash))
+                Some(format!("block_hash = X'{}'", &block_hash[2..]))
             }
             ValidatedBlockIdParam::BlockRange(from_block, to_block) => {
                 Some(format!("block_number BETWEEN {} AND {}", from_block, to_block))
@@ -414,5 +408,252 @@ impl std::fmt::Display for ValidatedQueryParams {
         } else {
             write!(f, "")
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use reth_primitives::{Address, Block, BlockHash, Header};
+    use reth_provider::test_utils::MockEthProvider;
+
+    use super::{ValidatedBlockIdParam, ValidatedQueryParams};
+    use crate::apis::{AddressRepresentation, GetLogsParameters, SubscribeParameters};
+
+    #[test]
+    fn test_display() {
+        let mock_provider = MockEthProvider::default();
+
+        let first_block =
+            Block { header: Header { number: 0, ..Default::default() }, ..Default::default() };
+        let first_block_hash = first_block.hash_slow();
+
+        let last_block =
+            Block { header: Header { number: 10, ..Default::default() }, ..Default::default() };
+        let last_block_hash = last_block.hash_slow();
+
+        mock_provider
+            .extend_blocks([(first_block_hash, first_block), (last_block_hash, last_block)]);
+
+        let subscribe_params = SubscribeParameters {
+            address: Some(AddressRepresentation::ArrayOfStrings(vec![Address::ZERO.to_string()])),
+            topics: Some(vec!["0xfoo".to_string()]),
+        };
+
+        assert_eq!(
+            format!(
+                "{}",
+                ValidatedQueryParams::from_subscribe_parameters(
+                    &mock_provider,
+                    subscribe_params,
+                    BlockHash::ZERO.to_string(),
+                )
+                .unwrap()
+            ),
+            "WHERE address IN (X'0000000000000000000000000000000000000000') AND block_hash = X'0000000000000000000000000000000000000000000000000000000000000000' AND topic_0 = X'foo'"
+        );
+
+        let get_logs_params = GetLogsParameters {
+            address: Some(AddressRepresentation::ArrayOfStrings(vec![Address::ZERO.to_string()])),
+            block_hash: Some(last_block_hash.to_string()),
+            from_block: None,
+            to_block: None,
+            topics: Some(vec!["0xfoo".to_string()]),
+        };
+
+        assert_eq!(
+            format!(
+                "{}",
+                ValidatedQueryParams::from_get_logs_parameters(&mock_provider, get_logs_params,)
+                    .unwrap()
+            ),
+            "WHERE address IN (X'0000000000000000000000000000000000000000') AND block_number BETWEEN 10 AND 10 AND topic_0 = X'foo'"
+        );
+    }
+
+    #[test]
+    fn test_from_subscribe_parameters() {
+        let mock_provider = MockEthProvider::default();
+
+        let first_block =
+            Block { header: Header { number: 0, ..Default::default() }, ..Default::default() };
+        let first_block_hash = first_block.hash_slow();
+
+        let last_block =
+            Block { header: Header { number: 10, ..Default::default() }, ..Default::default() };
+        let last_block_hash = last_block.hash_slow();
+
+        mock_provider
+            .extend_blocks([(first_block_hash, first_block), (last_block_hash, last_block)]);
+
+        let params = SubscribeParameters {
+            address: Some(AddressRepresentation::ArrayOfStrings(vec![Address::ZERO.to_string()])),
+            topics: None,
+        };
+
+        assert_eq!(
+            ValidatedQueryParams::from_subscribe_parameters(
+                &mock_provider,
+                params,
+                BlockHash::ZERO.to_string(),
+            )
+            .unwrap(),
+            ValidatedQueryParams {
+                addresses: vec![Address::ZERO.to_string()],
+                block_id: ValidatedBlockIdParam::BlockHash(BlockHash::ZERO.to_string()),
+                topics: [None, None, None, None]
+            }
+        )
+    }
+
+    #[test]
+    fn test_from_get_logs_parameters() {
+        let mock_provider = MockEthProvider::default();
+
+        let first_block =
+            Block { header: Header { number: 0, ..Default::default() }, ..Default::default() };
+        let first_block_hash = first_block.hash_slow();
+
+        let last_block =
+            Block { header: Header { number: 10, ..Default::default() }, ..Default::default() };
+        let last_block_hash = last_block.hash_slow();
+
+        mock_provider
+            .extend_blocks([(first_block_hash, first_block), (last_block_hash, last_block)]);
+
+        let params_with_block_hash = GetLogsParameters {
+            address: Some(AddressRepresentation::ArrayOfStrings(vec![
+                "0x0000000000000000000000000000000000000000".to_string(),
+            ])),
+            block_hash: Some(last_block_hash.to_string()),
+            from_block: None,
+            to_block: None,
+            topics: None,
+        };
+
+        assert!(ValidatedQueryParams::from_get_logs_parameters(
+            &mock_provider,
+            params_with_block_hash
+        )
+        .is_ok());
+
+        let params_with_defaults = GetLogsParameters {
+            address: Some(AddressRepresentation::ArrayOfStrings(vec![
+                "0x0000000000000000000000000000000000000000".to_string(),
+            ])),
+            block_hash: None,
+            from_block: None,
+            to_block: None,
+            topics: None,
+        };
+
+        let validated =
+            ValidatedQueryParams::from_get_logs_parameters(&mock_provider, params_with_defaults);
+
+        assert_eq!(
+            validated.unwrap(),
+            ValidatedQueryParams {
+                addresses: vec!["0x0000000000000000000000000000000000000000".to_string()],
+                block_id: ValidatedBlockIdParam::BlockRange(10, 10),
+                topics: [None, None, None, None]
+            }
+        );
+
+        let params_with_block_tags = GetLogsParameters {
+            address: Some(AddressRepresentation::ArrayOfStrings(vec![
+                "0x0000000000000000000000000000000000000000".to_string(),
+            ])),
+            block_hash: None,
+            from_block: Some("earliest".to_string()),
+            to_block: Some("latest".to_string()),
+            topics: None,
+        };
+        let validated =
+            ValidatedQueryParams::from_get_logs_parameters(&mock_provider, params_with_block_tags);
+
+        assert_eq!(
+            validated.unwrap(),
+            ValidatedQueryParams {
+                addresses: vec!["0x0000000000000000000000000000000000000000".to_string()],
+                block_id: ValidatedBlockIdParam::BlockRange(0, 10),
+                topics: [None, None, None, None]
+            }
+        );
+
+        let params_with_non_array_address = GetLogsParameters {
+            address: Some(AddressRepresentation::String(
+                "0x0000000000000000000000000000000000000000".to_string(),
+            )),
+            block_hash: None,
+            from_block: Some("earliest".to_string()),
+            to_block: Some("latest".to_string()),
+            topics: None,
+        };
+        let validated = ValidatedQueryParams::from_get_logs_parameters(
+            &mock_provider,
+            params_with_non_array_address,
+        );
+
+        assert_eq!(
+            validated.unwrap(),
+            ValidatedQueryParams {
+                addresses: vec!["0x0000000000000000000000000000000000000000".to_string()],
+                block_id: ValidatedBlockIdParam::BlockRange(0, 10),
+                topics: [None, None, None, None]
+            }
+        );
+
+        let params_with_bytes_as_address = GetLogsParameters {
+            address: Some(AddressRepresentation::Bytes([
+                192, 42, 170, 57, 178, 35, 254, 141, 10, 14, 92, 79, 39, 234, 217, 8, 60, 117, 108,
+                194,
+            ])),
+            block_hash: None,
+            from_block: Some("earliest".to_string()),
+            to_block: Some("latest".to_string()),
+            topics: None,
+        };
+        let validated = ValidatedQueryParams::from_get_logs_parameters(
+            &mock_provider,
+            params_with_bytes_as_address,
+        );
+
+        assert_eq!(
+            validated.unwrap(),
+            ValidatedQueryParams {
+                addresses: vec!["0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".to_string()],
+                block_id: ValidatedBlockIdParam::BlockRange(0, 10),
+                topics: [None, None, None, None]
+            }
+        );
+
+        let params_with_invalid_address = GetLogsParameters {
+            address: Some(AddressRepresentation::ArrayOfStrings(vec![
+                "0x0000000000000000000000000000000000000000".to_string(),
+            ])),
+            block_hash: Some(first_block_hash.to_string()),
+            from_block: Some(first_block_hash.to_string()),
+            to_block: Some(last_block_hash.to_string()),
+            topics: None,
+        };
+        assert!(ValidatedQueryParams::from_get_logs_parameters(
+            &mock_provider,
+            params_with_invalid_address
+        )
+        .is_err());
+
+        let params_with_block_hash_and_range = GetLogsParameters {
+            address: Some(AddressRepresentation::ArrayOfStrings(vec![
+                "0x0000000000000000000000000000000000000000".to_string(),
+            ])),
+            block_hash: Some(first_block_hash.to_string()),
+            from_block: Some(first_block_hash.to_string()),
+            to_block: Some(last_block_hash.to_string()),
+            topics: None,
+        };
+        assert!(ValidatedQueryParams::from_get_logs_parameters(
+            &mock_provider,
+            params_with_block_hash_and_range
+        )
+        .is_err());
     }
 }

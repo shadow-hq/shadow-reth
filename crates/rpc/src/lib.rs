@@ -127,8 +127,10 @@ mod tests {
         ]);
 
         let testing_db_path = std::env::temp_dir().join("test.db");
+        let (_, rx) = tokio::sync::broadcast::channel(1);
 
-        let rpc = ShadowRpc::new(mock_provider, testing_db_path.to_str().unwrap()).await.unwrap();
+        let rpc =
+            ShadowRpc::new(mock_provider, testing_db_path.to_str().unwrap(), rx).await.unwrap();
 
         let logs = vec![
             ShadowLog {

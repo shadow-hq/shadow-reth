@@ -19,7 +19,7 @@ use reth_node_api::FullNodeComponents;
 use reth_provider::{DatabaseProviderFactory, HistoricalStateProviderRef};
 use reth_tracing::tracing::{debug, info};
 use serde_json::Value;
-use shadow_reth_common::ShadowSqliteDb;
+use shadow_reth_common::{ShadowSqliteDb, ToLowerHex};
 use tokio::sync::broadcast::Sender;
 
 use crate::db::ShadowDatabase;
@@ -129,7 +129,7 @@ impl ShadowExEx {
                         })
                         .collect::<Vec<_>>();
 
-                    // Create a new runtime to send the shadow logs to the shadow database.
+                    // Create a new task to send the shadow logs to the shadow database.
                     tokio::spawn({
                         let sqlite_db = self.sqlite_db.clone();
                         let indexed_block_hash_sender = self.indexed_block_hash_sender.clone();
@@ -164,15 +164,14 @@ impl ShadowExEx {
                         let block = block.clone().unseal();
                         debug!(block = block.number, "Invalidating shadow logs");
 
-                        // Create a new runtime to handle the block reorg in the shadow database.
+                        // Create a new task to handle the block reorg in the shadow database.
                         tokio::spawn({
                             let sqlite_db = self.sqlite_db.clone();
                             let indexed_block_hash_sender = self.indexed_block_hash_sender.clone();
                             async move {
-                                let block_hash =
-                                    format!("{block_hash:x}", block_hash = block.hash_slow());
-                                let _ = sqlite_db.handle_block_reorg(block_hash.clone()).await;
-                                let _ = indexed_block_hash_sender.send(block_hash);
+                                let block_hash = block.hash_slow();
+                                let _ = sqlite_db.handle_block_reorg(block_hash).await;
+                                let _ = indexed_block_hash_sender.send(block_hash.to_lower_hex());
                             }
                         });
                     });

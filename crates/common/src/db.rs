@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 use eyre::Result;
+use reth_primitives::BlockHash;
 use reth_tracing::tracing::debug;
 use sqlx::{
     sqlite::{SqliteConnectOptions, SqlitePoolOptions},
@@ -90,10 +91,10 @@ impl ShadowSqliteDb {
     /// Marks all logs with the given `block_hash` as removed.
     ///
     /// This is used to invalid all logs in a block when a reorg happens.
-    pub async fn handle_block_reorg(&self, block_hash: String) -> Result<()> {
+    pub async fn handle_block_reorg(&self, block_hash: BlockHash) -> Result<()> {
         let start_time = std::time::Instant::now();
         let _ = sqlx::query(&format!(
-            "UPDATE shadow_logs SET removed = true WHERE block_hash = X'{block_hash}'",
+            "UPDATE shadow_logs SET removed = true WHERE block_hash = X'{block_hash:x}'",
         ))
         .execute(&self.pool)
         .await?;
