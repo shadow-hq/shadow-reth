@@ -24,6 +24,7 @@ reth-primitives.workspace = true
 reth-provider.workspace = true
 reth-tracing.workspace = true
 reth-revm.workspace = true
+revm-inspectors = { git = "https://github.com/paradigmxyz/revm-inspectors", rev = "ed5450e" }
 
 # Crates
 eyre.workspace = true

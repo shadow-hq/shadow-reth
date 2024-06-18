@@ -11,9 +11,8 @@ use std::path::PathBuf;
 
 use contracts::ShadowContracts;
 use execution::ShadowExecutor;
-use eyre::{eyre, OptionExt, Result};
+use eyre::{eyre, Result};
 use futures::Future;
-use reth_evm_ethereum::EthEvmConfig;
 use reth_exex::{ExExContext, ExExEvent, ExExNotification};
 use reth_node_api::FullNodeComponents;
 use reth_provider::{DatabaseProviderFactory, HistoricalStateProviderRef};
@@ -100,21 +99,14 @@ impl ShadowExEx {
 
                     // Construct a new `ShadowExecutor` with the default config and proper chain
                     // spec, using the `ShadowDatabase` as the state provider.
-                    let evm_config = EthEvmConfig::default();
-                    let mut executor = ShadowExecutor::new(
-                        &evm_config,
-                        db,
-                        ctx.config.chain.clone(),
-                        blocks
-                            .first()
-                            .map(|b| b.header())
-                            .ok_or_eyre("No blocks found in ExEx notification")?,
-                    );
+                    let mut executor = ShadowExecutor::new(db);
 
                     // Execute the blocks in the chain, collecting logs from shadowed contracts.
                     let shadow_logs = blocks
                         .into_iter()
-                        .map(|block| executor.execute_one(block.clone().unseal()))
+                        .map(|block| {
+                            executor.execute_one(block.clone().unseal(), ctx.config.chain.clone())
+                        })
                         .collect::<Result<Vec<_>>>()?
                         .into_iter()
                         .flat_map(|executed_block| executed_block.logs())
