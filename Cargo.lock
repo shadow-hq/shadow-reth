@@ -6397,7 +6397,7 @@ dependencies = [
  "reth-tasks",
  "reth-transaction-pool",
  "revm",
- "revm-inspectors 0.1.0 (git+https://github.com/paradigmxyz/evm-inspectors?rev=ed5450e)",
+ "revm-inspectors",
  "revm-primitives",
  "schnellru",
  "secp256k1 0.28.2",
@@ -6763,22 +6763,6 @@ dependencies = [
  "anstyle",
  "boa_engine",
  "boa_gc",
- "colorchoice",
- "revm",
- "serde_json",
- "thiserror",
-]
-
-[[package]]
-name = "revm-inspectors"
-version = "0.1.0"
-source = "git+https://github.com/paradigmxyz/revm-inspectors?rev=ed5450e#ed5450e7169ce0237e791fed661688c55997a0ac"
-dependencies = [
- "alloy-primitives",
- "alloy-rpc-types",
- "alloy-rpc-types-trace",
- "alloy-sol-types",
- "anstyle",
  "colorchoice",
  "revm",
  "serde_json",
@@ -7489,7 +7473,6 @@ dependencies = [
  "reth-provider",
  "reth-revm",
  "reth-tracing",
- "revm-inspectors 0.1.0 (git+https://github.com/paradigmxyz/revm-inspectors?rev=ed5450e)",
  "serde_json",
  "shadow-reth-common",
  "tokio",

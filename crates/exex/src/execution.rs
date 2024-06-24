@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use eyre::Result;
 use reth_evm_ethereum::EthEvmConfig;
-use reth_node_api::{ConfigureEvm, ConfigureEvmEnv};
+use reth_node_api::ConfigureEvmEnv;
 use reth_primitives::{
     revm::{config::revm_spec, env::fill_tx_env},
     Block, BlockWithSenders, ChainSpec, Head, Header, TransactionSigned,
@@ -126,6 +126,9 @@ impl<'a, DB: StateProvider> ShadowExecutor<'a, DB> {
                     },
                 };
 
+                // FIXME: why is result.logs always empty?
+                info!("Executed transaction: {:?}, {:?}", transaction.hash, result);
+
                 // Commit the state changes to the shadowed database, and store the result of the
                 // transaction.
                 self.evm.db_mut().commit(state);
@@ -159,4 +162,5 @@ fn configure_evm<'a, DB: StateProvider>(
     let mut cfg = CfgEnvWithHandlerCfg::new_with_spec_id(evm.cfg().clone(), header_spec_id);
     EthEvmConfig::fill_cfg_and_block_env(&mut cfg, evm.block_mut(), &chain, header, U256::ZERO);
     *evm.cfg_mut() = cfg.cfg_env;
+    evm.modify_spec_id(header_spec_id)
 }
