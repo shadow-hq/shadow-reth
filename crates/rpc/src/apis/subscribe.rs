@@ -12,7 +12,7 @@ use jsonrpsee::{
     PendingSubscriptionSink, SubscriptionMessage, SubscriptionSink,
 };
 use reth_provider::{BlockNumReader, BlockReaderIdExt};
-use reth_tracing::tracing::{info, warn};
+use reth_tracing::tracing::warn;
 use serde::{Deserialize, Serialize};
 use shadow_reth_common::ShadowSqliteDb;
 use tokio::sync::broadcast::{error::RecvError, Receiver};

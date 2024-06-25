@@ -39,10 +39,8 @@ where
     let mut results: Vec<RpcLog> = vec![];
     for query_params in [validated_param_objs] {
         let intermediate_results = exec_query(query_params, &rpc.sqlite_manager.pool).await?;
-        let mut result = intermediate_results
-            .into_iter()
-            .map(RpcLog::from)
-            .collect::<Vec<RpcLog>>();
+        let mut result =
+            intermediate_results.into_iter().map(RpcLog::from).collect::<Vec<RpcLog>>();
         results.append(&mut result);
     }
 
