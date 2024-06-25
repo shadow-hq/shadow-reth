@@ -7448,6 +7448,7 @@ dependencies = [
  "reth-node-ethereum",
  "shadow-reth-exex",
  "shadow-reth-rpc",
+ "tokio",
 ]
 
 [[package]]
@@ -7488,6 +7489,7 @@ dependencies = [
  "reth-node-builder",
  "reth-primitives",
  "reth-provider",
+ "reth-tracing",
  "serde",
  "shadow-reth-common",
  "sqlx",

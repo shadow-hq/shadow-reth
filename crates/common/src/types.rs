@@ -1,5 +1,5 @@
 /// A shadow log entry.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ShadowLog {
     /// Contract address from which the log originated.
     pub address: String,

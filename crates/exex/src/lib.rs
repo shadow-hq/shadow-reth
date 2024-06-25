@@ -19,7 +19,8 @@ use reth_node_api::FullNodeComponents;
 use reth_provider::{DatabaseProviderFactory, HistoricalStateProviderRef};
 use reth_tracing::tracing::{debug, info};
 use serde_json::Value;
-use shadow_reth_common::ShadowSqliteDb;
+use shadow_reth_common::{ShadowSqliteDb, ToLowerHex};
+use tokio::sync::broadcast::Sender;
 
 use crate::db::ShadowDatabase;
 
@@ -31,12 +32,14 @@ pub struct ShadowExEx {
     contracts: ShadowContracts,
     /// The [`ShadowSqliteDb`] for the shadow database.
     sqlite_db: ShadowSqliteDb,
+
+    indexed_block_hash_sender: Sender<String>,
 }
 
 impl ShadowExEx {
     /// Creates a new instance of the ShadowExEx. This will attempt to load
     /// the configuration from `shadow.json` in the current working directory.
-    pub async fn new(db_path: PathBuf) -> Result<Self> {
+    pub async fn new(db_path: PathBuf, indexed_block_hash_sender: Sender<String>) -> Result<Self> {
         // read config from `./shadow.json` as a serde_json::Value
         let config: Value =
             serde_json::from_str(&std::fs::read_to_string("shadow.json").map_err(|e| {
@@ -57,15 +60,16 @@ impl ShadowExEx {
         )
         .await?;
 
-        Ok(Self { contracts, sqlite_db })
+        Ok(Self { contracts, sqlite_db, indexed_block_hash_sender })
     }
 
     /// The initialization logic of the ExEx is just an async function.
     pub async fn init<Node: FullNodeComponents>(
         ctx: ExExContext<Node>,
+        indexed_block_hash_sender: Sender<String>,
     ) -> Result<impl Future<Output = Result<()>>> {
         let db_path = ctx.data_dir.db();
-        let this = Self::new(db_path).await?;
+        let this = Self::new(db_path, indexed_block_hash_sender).await?;
 
         info!("Initialized ShadowExEx with {} shadowed contracts", this.contracts.len());
 
@@ -125,11 +129,28 @@ impl ShadowExEx {
                         })
                         .collect::<Vec<_>>();
 
-                    // Create a new runtime to send the shadow logs to the shadow database.
+                    // Create a new task to send the shadow logs to the shadow database.
                     tokio::spawn({
                         let sqlite_db = self.sqlite_db.clone();
+                        let indexed_block_hash_sender = self.indexed_block_hash_sender.clone();
                         async move {
+                            let block_hashes =
+                                shadow_logs.iter().fold(Vec::new(), |mut acc, log| {
+                                    match acc.last() {
+                                        None => acc.push(log.block_hash.clone()),
+                                        Some(last) if last != &log.block_hash => {
+                                            acc.push(log.block_hash.clone())
+                                        }
+                                        _ => {}
+                                    }
+
+                                    acc
+                                });
+
                             let _ = sqlite_db.bulk_insert_into_shadow_log_table(shadow_logs).await;
+                            for block_hash in block_hashes {
+                                let _ = indexed_block_hash_sender.send(block_hash);
+                            }
                         }
                     });
 
@@ -142,12 +163,15 @@ impl ShadowExEx {
                     chain.blocks_iter().for_each(|block| {
                         let block = block.clone().unseal();
                         debug!(block = block.number, "Invalidating shadow logs");
-                        let sqlite_db = self.sqlite_db.clone();
 
-                        // Create a new runtime to handle the block reorg in the shadow database.
+                        // Create a new task to handle the block reorg in the shadow database.
                         tokio::spawn({
+                            let sqlite_db = self.sqlite_db.clone();
+                            let indexed_block_hash_sender = self.indexed_block_hash_sender.clone();
                             async move {
-                                let _ = sqlite_db.handle_block_reorg(block.hash_slow()).await;
+                                let block_hash = block.hash_slow();
+                                let _ = sqlite_db.handle_block_reorg(block_hash).await;
+                                let _ = indexed_block_hash_sender.send(block_hash.to_lower_hex());
                             }
                         });
                     });
