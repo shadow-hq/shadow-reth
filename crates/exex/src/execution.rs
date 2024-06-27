@@ -2,9 +2,10 @@ use std::sync::Arc;
 
 use eyre::Result;
 use reth_evm_ethereum::EthEvmConfig;
-use reth_node_api::{ConfigureEvm, ConfigureEvmEnv};
+use reth_node_api::ConfigureEvmEnv;
 use reth_primitives::{
-    revm::env::fill_tx_env, Block, BlockWithSenders, ChainSpec, Header, TransactionSigned,
+    revm::{config::revm_spec, env::fill_tx_env},
+    Block, BlockWithSenders, ChainSpec, Head, Header, TransactionSigned,
 };
 use reth_provider::StateProvider;
 use reth_revm::{
@@ -12,9 +13,9 @@ use reth_revm::{
     primitives::{
         CfgEnvWithHandlerCfg, EVMError, ExecutionResult, HashMap, ResultAndState, B256, U256,
     },
-    DatabaseCommit, Evm, StateBuilder,
+    DatabaseCommit, Evm, EvmBuilder, StateBuilder,
 };
-use reth_tracing::tracing::{debug, error};
+use reth_tracing::tracing::{debug, error, info};
 use shadow_reth_common::{ShadowLog, ToLowerHex};
 
 use crate::db::ShadowDatabase;
@@ -72,20 +73,24 @@ impl ExecutedBlock {
 
 impl<'a, DB: StateProvider> ShadowExecutor<'a, DB> {
     /// Creates a new instance of the ShadowExecutor
-    pub(crate) fn new(
-        config: &'a EthEvmConfig,
-        db: ShadowDatabase<DB>,
-        chain: Arc<ChainSpec>,
-        header: &Header,
-    ) -> Self {
-        let evm = configure_evm(config, db, chain, header);
+    pub(crate) fn new(db: ShadowDatabase<DB>) -> Self {
+        let evm = EvmBuilder::default()
+            .with_db(StateBuilder::new_with_database(db).with_bundle_update().build())
+            .build();
         Self { evm }
     }
 
     #[allow(clippy::mutable_key_type)]
     /// Executes a single block (without verifying them) and returns their [`ExecutionResult`]s
     /// within a [`ExecutedBlock`].
-    pub(crate) fn execute_one(&mut self, block: BlockWithSenders) -> Result<ExecutedBlock> {
+    pub(crate) fn execute_one(
+        &mut self,
+        block: BlockWithSenders,
+        chain: Arc<ChainSpec>,
+    ) -> Result<ExecutedBlock> {
+        // Configure the EVM for the block.
+        configure_evm(&mut self.evm, chain, &block.block.header);
+
         // Calculate the canonical block hash, before making state-changing operations.
         let canonical_block_hash = block.block.hash_slow();
 
@@ -121,6 +126,9 @@ impl<'a, DB: StateProvider> ShadowExecutor<'a, DB> {
                     },
                 };
 
+                // FIXME: why is result.logs always empty?
+                info!("Executed transaction: {:?}, {:?}", transaction.hash, result);
+
                 // Commit the state changes to the shadowed database, and store the result of the
                 // transaction.
                 self.evm.db_mut().commit(state);
@@ -135,17 +143,24 @@ impl<'a, DB: StateProvider> ShadowExecutor<'a, DB> {
     }
 }
 
-/// Configure EVM with the given database and header.
+/// Configure EVM with the given header and chain spec.
 fn configure_evm<'a, DB: StateProvider>(
-    config: &'a EthEvmConfig,
-    db: ShadowDatabase<DB>,
+    evm: &mut Evm<'a, (), State<ShadowDatabase<DB>>>,
     chain: Arc<ChainSpec>,
     header: &Header,
-) -> Evm<'a, (), State<ShadowDatabase<DB>>> {
-    let mut evm = config.evm(StateBuilder::new_with_database(db).with_bundle_update().build());
-    let mut cfg = CfgEnvWithHandlerCfg::new_with_spec_id(evm.cfg().clone(), evm.spec_id());
+) {
+    let header_spec_id = revm_spec(
+        &chain,
+        Head::new(
+            header.number,
+            header.hash_slow(),
+            header.difficulty,
+            U256::ZERO,
+            header.timestamp,
+        ),
+    );
+    let mut cfg = CfgEnvWithHandlerCfg::new_with_spec_id(evm.cfg().clone(), header_spec_id);
     EthEvmConfig::fill_cfg_and_block_env(&mut cfg, evm.block_mut(), &chain, header, U256::ZERO);
     *evm.cfg_mut() = cfg.cfg_env;
-
-    evm
+    evm.modify_spec_id(header_spec_id)
 }
