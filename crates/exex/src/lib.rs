@@ -64,7 +64,7 @@ impl ShadowExEx {
     pub async fn init<Node: FullNodeComponents>(
         ctx: ExExContext<Node>,
     ) -> Result<impl Future<Output = Result<()>>> {
-        let db_path = ctx.data_dir.db();
+        let db_path = ctx.config.datadir().db();
         let this = Self::new(db_path).await?;
 
         info!("Initialized ShadowExEx with {} shadowed contracts", this.contracts.len());
@@ -125,6 +125,8 @@ impl ShadowExEx {
                         })
                         .collect::<Vec<_>>();
 
+                    println!("Shadow logs: {:?}", shadow_logs);
+
                     // Create a new runtime to send the shadow logs to the shadow database.
                     tokio::spawn({
                         let sqlite_db = self.sqlite_db.clone();
@@ -155,6 +157,107 @@ impl ShadowExEx {
                 _ => {}
             }
         }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{collections::HashMap, pin::pin};
+
+    use alloy_sol_types::SolEvent;
+    use reth::{args::DatadirArgs, dirs::MaybePlatformPath, revm::db::BundleState};
+    use reth_exex_test_utils::{test_exex_context, PollOnce};
+    use reth_primitives::{
+        address, Address, Block, Bytes, Header, Log, Receipt, Receipts, Transaction,
+        TransactionSigned, TxKind, TxLegacy, TxType, U256,
+    };
+    use reth_provider::{BundleStateWithReceipts, Chain, DatabaseProviderFactory};
+    use reth_revm::{
+        db::{AccountStatus, BundleAccount},
+        primitives::AccountInfo,
+    };
+    use reth_testing_utils::generators::sign_tx_with_random_key_pair;
+
+    use crate::ShadowExEx;
+
+    const WETH_ADDRESS: Address = address!("c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2");
+
+    fn generate_tx_and_receipt(
+        from: Address,
+        to: Address,
+        input: Bytes,
+        value: U256,
+    ) -> eyre::Result<(TransactionSigned, Receipt)> {
+        let tx = Transaction::Legacy(TxLegacy {
+            to: TxKind::Call(to),
+            input,
+            value,
+            gas_limit: u64::MAX,
+            ..Default::default()
+        });
+        let receipt = Receipt {
+            tx_type: TxType::Legacy,
+            success: true,
+            cumulative_gas_used: 0,
+            logs: vec![],
+            ..Default::default()
+        };
+        Ok((sign_tx_with_random_key_pair(&mut rand::thread_rng(), tx), receipt))
+    }
+
+    #[tokio::test]
+    async fn test_exex() -> eyre::Result<()> {
+        let (mut ctx, handle) = test_exex_context().await?;
+
+        println!("{:#?}", ctx.components.provider.database_provider_ro());
+
+        // copy ../../shadow.json.example to cwd
+        std::fs::copy("../../shadow.json.example", "shadow.json")?;
+
+        // init ShadowExEx
+        let mut exex = pin!(ShadowExEx::init(ctx).await?);
+
+        // get a random from address, and give it some ETH
+        let from_address = Address::random();
+        let to_address = Address::random();
+        let from_balance = U256::from(1_000_000_000);
+
+        // build account state
+        let from_account_info = AccountInfo { balance: from_balance, ..Default::default() };
+        let from_bundle_account = BundleAccount {
+            info: Some(from_account_info.clone()),
+            original_info: Some(from_account_info),
+            storage: HashMap::new(),
+            status: AccountStatus::LoadedNotExisting,
+        };
+        let bundle_state = HashMap::from([(from_address, from_bundle_account)]);
+
+        // build a new WETH deposit transaction
+        let (deposit_tx, deposit_tx_receipt) =
+            generate_tx_and_receipt(from_address, WETH_ADDRESS, Bytes::default(), U256::from(0))?;
+        let block = Block {
+            header: Header { gas_limit: u64::MAX, ..Default::default() },
+            body: vec![deposit_tx],
+            ..Default::default()
+        }
+        .seal_slow()
+        .seal_with_senders()
+        .ok_or_else(|| eyre::eyre!("failed to recover senders"))?;
+
+        let chain = Chain::new(
+            vec![block.clone()],
+            BundleStateWithReceipts::new(
+                BundleState { state: bundle_state, ..Default::default() },
+                Receipts::from_block_receipt(vec![deposit_tx_receipt]),
+                block.number,
+            ),
+            None,
+        );
+
+        handle.send_notification_chain_committed(chain.clone()).await?;
+        exex.poll_once().await;
+
         Ok(())
     }
 }

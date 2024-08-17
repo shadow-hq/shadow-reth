@@ -4,7 +4,7 @@ use eyre::Result;
 use reth_evm_ethereum::EthEvmConfig;
 use reth_node_api::{ConfigureEvm, ConfigureEvmEnv};
 use reth_primitives::{
-    revm::env::fill_tx_env, Block, BlockWithSenders, ChainSpec, Header, TransactionSigned,
+    address, revm::env::fill_tx_env, Block, BlockWithSenders, ChainSpec, Header, TransactionSigned,
 };
 use reth_provider::StateProvider;
 use reth_revm::{
@@ -12,7 +12,7 @@ use reth_revm::{
     primitives::{
         CfgEnvWithHandlerCfg, EVMError, ExecutionResult, HashMap, ResultAndState, B256, U256,
     },
-    DatabaseCommit, Evm, StateBuilder,
+    Database, DatabaseCommit, DatabaseRef, Evm, StateBuilder,
 };
 use reth_tracing::tracing::{debug, error};
 use shadow_reth_common::{ShadowLog, ToLowerHex};
@@ -78,6 +78,7 @@ impl<'a, DB: StateProvider> ShadowExecutor<'a, DB> {
         chain: Arc<ChainSpec>,
         header: &Header,
     ) -> Self {
+        println!("aaa {:#?}", db.basic_ref(address!("c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2")));
         let evm = configure_evm(config, db, chain, header);
         Self { evm }
     }
@@ -104,22 +105,31 @@ impl<'a, DB: StateProvider> ShadowExecutor<'a, DB> {
                     }
                 };
 
+                println!("sender: {:?}", sender);
+
                 // Execute the transaction, do not verify it since we're shadowing certain contracts
                 // which may not be valid.
                 fill_tx_env(self.evm.tx_mut(), &transaction, sender);
+
+                println!("tx: {:?}", self.evm.tx());
                 let ResultAndState { result, state } = match self.evm.transact_preverified() {
                     Ok(result) => result,
                     Err(err) => match err {
                         EVMError::Transaction(err) => {
+                            println!("err: {:?}", err);
                             debug!(%err, ?transaction, "Skipping invalid transaction");
                             continue;
                         }
                         err => {
+                            println!("fatal err: {:?}", err);
                             error!(%err, ?transaction, "Fatal error during transaction execution");
                             continue;
                         }
                     },
                 };
+
+                println!("result: {:?}", result);
+                println!("state: {:?}", state);
 
                 // Commit the state changes to the shadowed database, and store the result of the
                 // transaction.

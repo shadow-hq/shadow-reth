@@ -107,17 +107,19 @@ shadow-reth-rpc = { path = "crates/rpc" }
 shadow-reth-common = { path = "crates/common" }
 
 # Reth
-reth = { git = "https://github.com/paradigmxyz/reth.git", rev = "d777d5f" }
-reth-exex = { git = "https://github.com/paradigmxyz/reth.git", rev = "d777d5f" }
-reth-node-api = { git = "https://github.com/paradigmxyz/reth.git", rev = "d777d5f" }
-reth-node-builder = { git = "https://github.com/paradigmxyz/reth.git", rev = "d777d5f" }
-reth-node-ethereum = { git = "https://github.com/paradigmxyz/reth.git", rev = "d777d5f" }
-reth-primitives = { git = "https://github.com/paradigmxyz/reth.git", rev = "d777d5f" }
-reth-tracing = { git = "https://github.com/paradigmxyz/reth.git", rev = "d777d5f" }
-reth-evm = { git = "https://github.com/paradigmxyz/reth.git", rev = "d777d5f" }
-reth-evm-ethereum = { git = "https://github.com/paradigmxyz/reth.git", rev = "d777d5f" }
-reth-provider = { git = "https://github.com/paradigmxyz/reth.git", rev = "d777d5f" }
-reth-revm = { git = "https://github.com/paradigmxyz/reth.git", rev = "d777d5f" }
+reth = { git = "https://github.com/paradigmxyz/reth.git", rev = "31970ed" }
+reth-exex = { git = "https://github.com/paradigmxyz/reth.git", rev = "31970ed" }
+reth-node-api = { git = "https://github.com/paradigmxyz/reth.git", rev = "31970ed" }
+reth-node-builder = { git = "https://github.com/paradigmxyz/reth.git", rev = "31970ed" }
+reth-node-ethereum = { git = "https://github.com/paradigmxyz/reth.git", rev = "31970ed" }
+reth-primitives = { git = "https://github.com/paradigmxyz/reth.git", rev = "31970ed" }
+reth-tracing = { git = "https://github.com/paradigmxyz/reth.git", rev = "31970ed" }
+reth-evm = { git = "https://github.com/paradigmxyz/reth.git", rev = "31970ed" }
+reth-evm-ethereum = { git = "https://github.com/paradigmxyz/reth.git", rev = "31970ed" }
+reth-provider = { git = "https://github.com/paradigmxyz/reth.git", rev = "31970ed" }
+reth-revm = { git = "https://github.com/paradigmxyz/reth.git", rev = "31970ed" }
+reth-exex-test-utils = { git = "https://github.com/paradigmxyz/reth.git", rev = "31970ed" }
+reth-testing-utils = { git = "https://github.com/paradigmxyz/reth.git", rev = "31970ed" }
 
 # Crates.io
 eyre = "0.6.12"
@@ -126,6 +128,9 @@ futures = "0.3.30"
 tracing = "0.1.40"
 serde = "1.0.203"
 serde_json = "1.0.117"
+rand = "0.8.5"
+tempfile = "3.10.1"
+alloy-sol-types = "0.7.2"
 
 # RPC
 jsonrpsee = "0.22.5"

@@ -17,7 +17,7 @@ fn main() -> Result<()> {
     }
 
     reth::cli::Cli::parse_args().run(|builder, _| async move {
-        let db_path_obj = builder.data_dir().db().join("shadow.db");
+        let db_path_obj = builder.config().datadir().db().join("shadow.db");
 
         // Start reth w/ the shadow exex.
         let handle = builder

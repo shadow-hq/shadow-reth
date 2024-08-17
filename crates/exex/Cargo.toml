@@ -30,3 +30,14 @@ eyre.workspace = true
 tokio.workspace = true
 futures.workspace = true
 serde_json.workspace = true
+
+
+[dev-dependencies]
+alloy-sol-types = { workspace = true, features = ["json"] }
+reth.workspace = true
+reth-exex-test-utils.workspace = true
+reth-testing-utils.workspace = true
+
+tokio.workspace = true
+rand.workspace = true
+tempfile.workspace = true
